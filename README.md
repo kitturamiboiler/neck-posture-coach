@@ -1,6 +1,6 @@
 # Neck Posture Coach
 
-Google ML Kit `vision-quickstart` 샘플을 기반으로 만드는 Android 거북목 자세 측정 포트폴리오 프로젝트입니다.
+Google ML Kit `vision-quickstart` 샘플을 기반으로 만드는 Android 거북목 자세 측정 프로젝트입니다.
 
 목표는 스마트폰/태블릿 카메라로 옆모습을 촬영하고, 온디바이스 ML Kit으로 귀와 어깨 랜드마크를 검출한 뒤 목 기울기 각도를 계산하는 것입니다. 결과는 자가 참고용 자세 지표로 보여주고, 교정 운동과 변화 추적까지 이어가는 것을 목표로 합니다.
 
