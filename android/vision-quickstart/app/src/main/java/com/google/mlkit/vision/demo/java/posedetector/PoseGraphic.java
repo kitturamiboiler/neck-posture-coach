@@ -37,6 +37,7 @@ public class PoseGraphic extends Graphic {
   private static final float IN_FRAME_LIKELIHOOD_TEXT_SIZE = 30.0f;
   private static final float STROKE_WIDTH = 10.0f;
   private static final float POSE_CLASSIFICATION_TEXT_SIZE = 60.0f;
+  private static final float POSTURE_MIN_CONFIDENCE = 0.5f;
 
   private final Pose pose;
   private final boolean showInFrameLikelihood;
@@ -48,6 +49,9 @@ public class PoseGraphic extends Graphic {
   private final List<String> poseClassification;
   private final Paint classificationTextPaint;
   private final Paint leftPaint;
+  private final Paint postureLabelPaint;
+  private final Paint postureLinePaint;
+  private final Paint posturePointPaint;
   private final Paint rightPaint;
   private final Paint whitePaint;
 
@@ -77,6 +81,16 @@ public class PoseGraphic extends Graphic {
     leftPaint = new Paint();
     leftPaint.setStrokeWidth(STROKE_WIDTH);
     leftPaint.setColor(Color.GREEN);
+    posturePointPaint = new Paint();
+    posturePointPaint.setColor(Color.WHITE);
+    posturePointPaint.setStyle(Paint.Style.FILL);
+    postureLabelPaint = new Paint();
+    postureLabelPaint.setColor(Color.WHITE);
+    postureLabelPaint.setTextSize(IN_FRAME_LIKELIHOOD_TEXT_SIZE);
+    postureLabelPaint.setShadowLayer(5.0f, 0f, 0f, Color.BLACK);
+    postureLinePaint = new Paint();
+    postureLinePaint.setColor(Color.WHITE);
+    postureLinePaint.setStrokeWidth(STROKE_WIDTH);
     rightPaint = new Paint();
     rightPaint.setStrokeWidth(STROKE_WIDTH);
     rightPaint.setColor(Color.YELLOW);
@@ -143,6 +157,13 @@ public class PoseGraphic extends Graphic {
     PoseLandmark rightHeel = pose.getPoseLandmark(PoseLandmark.RIGHT_HEEL);
     PoseLandmark leftFootIndex = pose.getPoseLandmark(PoseLandmark.LEFT_FOOT_INDEX);
     PoseLandmark rightFootIndex = pose.getPoseLandmark(PoseLandmark.RIGHT_FOOT_INDEX);
+
+    drawPostureLandmark(canvas, "L ear", leftEar);
+    drawPostureLandmark(canvas, "R ear", rightEar);
+    drawPostureLandmark(canvas, "L shoulder", leftShoulder);
+    drawPostureLandmark(canvas, "R shoulder", rightShoulder);
+    drawPostureAngle(canvas, "L neck", leftEar, leftShoulder);
+    drawPostureAngle(canvas, "R neck", rightEar, rightShoulder);
 
     // Face
     drawLine(canvas, nose, lefyEyeInner, whitePaint);
@@ -218,5 +239,44 @@ public class PoseGraphic extends Graphic {
         translateX(end.getX()),
         translateY(end.getY()),
         paint);
+  }
+
+  private void drawPostureLandmark(Canvas canvas, String label, PoseLandmark landmark) {
+    if (landmark == null) {
+      return;
+    }
+    float x = translateX(landmark.getPosition().x);
+    float y = translateY(landmark.getPosition().y);
+    canvas.drawCircle(x, y, DOT_RADIUS * 2, posturePointPaint);
+    canvas.drawText(
+        String.format(Locale.US, "%s %.2f", label, landmark.getInFrameLikelihood()),
+        x + DOT_RADIUS * 2,
+        y,
+        postureLabelPaint);
+  }
+
+  private void drawPostureAngle(
+      Canvas canvas, String label, PoseLandmark ear, PoseLandmark shoulder) {
+    if (!isReliable(ear) || !isReliable(shoulder)) {
+      return;
+    }
+
+    float earX = translateX(ear.getPosition().x);
+    float earY = translateY(ear.getPosition().y);
+    float shoulderX = translateX(shoulder.getPosition().x);
+    float shoulderY = translateY(shoulder.getPosition().y);
+    double angle =
+        Math.toDegrees(Math.atan2(Math.abs(earX - shoulderX), Math.abs(shoulderY - earY)));
+
+    canvas.drawLine(earX, earY, shoulderX, shoulderY, postureLinePaint);
+    canvas.drawText(
+        String.format(Locale.US, "%s %.0f deg", label, angle),
+        (earX + shoulderX) / 2.0f,
+        (earY + shoulderY) / 2.0f,
+        postureLabelPaint);
+  }
+
+  private static boolean isReliable(PoseLandmark landmark) {
+    return landmark != null && landmark.getInFrameLikelihood() >= POSTURE_MIN_CONFIDENCE;
   }
 }
