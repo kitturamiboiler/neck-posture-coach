@@ -9,6 +9,7 @@ Google ML Kit `vision-quickstart` 샘플을 기반으로 만드는 Android 거�
 - 기반 프로젝트: Google ML Kit 샘플 저장소
 - 작업 앱: `android/vision-quickstart`
 - 대상 플랫폼: Android
+- 현재 구현 언어: Java
 - 처리 방식: 온디바이스
 - 서버/백엔드: 없음
 - 사진 저장: 하지 않음. 계산된 측정값만 저장 예정
@@ -31,9 +32,11 @@ Google ML Kit `vision-quickstart` 샘플을 기반으로 만드는 Android 거�
 브랜치 전략:
 
 ```text
-master 또는 main  안정 브랜치
-dev               개발 통합 브랜치
-feat/*            dev에서 분기하는 기능 브랜치
+master        안정 브랜치
+dev           개발 통합 브랜치이자 기본 브랜치
+feat/*        dev에서 분기하는 기능 브랜치
+fix/*         dev에서 분기하는 수정 브랜치
+docs/*        dev에서 분기하는 문서 브랜치
 ```
 
 커밋 형식:
@@ -72,11 +75,11 @@ Android Studio:
 
 ## 다음 목표
 
-1. 갤럭시 탭 또는 Android 실기기에서 ML Kit 샘플을 실행합니다.
-2. Pose Detection에서 귀와 어깨 랜드마크가 잡히는지 확인합니다.
-3. 최소한의 목 각도 계산 프로토타입을 추가합니다.
-4. 촬영 품질 게이트를 추가합니다.
-5. 위험도 판정과 로컬 측정값 저장을 연결합니다.
+1. 같은 프레임에서 Face Detection 귀와 Pose Detection 어깨를 동시에 검출합니다.
+2. 두 점과 연결선을 표시하고 수평선 기준 귀-어깨각을 계산합니다.
+3. 촬영 품질 검사와 3장 중앙값을 연결합니다.
+4. 결과 화면과 로컬 측정값 저장을 연결합니다.
+5. 교정 동작 안내와 이력 화면을 추가합니다.
 
 ## 원본
 
