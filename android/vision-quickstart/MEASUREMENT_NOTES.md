@@ -56,18 +56,20 @@ Pose ear + Pose shoulder = neck 48 deg
 
 ```text
 dx = abs(earX - shoulderX)
-dy = abs(shoulderY - earY)
-angle = atan2(dx, dy)
+dy = shoulderY - earY
+angle = atan2(dy, dx)
 ```
 
-`angle`은 수직선에서 귀-어깨 선이 얼마나 앞으로 기울었는지를 보는 값이다.
+`angle`은 어깨에서 귀로 향하는 선과 수평선 사이의 각도다. 90도에 가까울수록 귀가 어깨 위에 가깝다.
 
-현재 코드는 화면 좌표 기준으로 계산하고, 도 단위로 표시한다.
+최종 측정 로직은 화면 좌표 기준으로 계산하고, 도 단위로 표시한다.
 
 ```java
 double angle =
-    Math.toDegrees(Math.atan2(Math.abs(earX - shoulderX), Math.abs(shoulderY - earY)));
+    Math.toDegrees(Math.atan2(shoulderY - earY, Math.abs(earX - shoulderX)));
 ```
+
+현재 `PoseGraphic`의 각도 표시는 수직선 기준 편차를 확인하는 임시 디버그 값이다. 최종 측정 로직에는 그대로 사용하지 않는다.
 
 ## 다음 확인
 
