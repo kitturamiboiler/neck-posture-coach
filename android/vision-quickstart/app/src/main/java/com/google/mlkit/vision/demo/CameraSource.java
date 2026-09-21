@@ -405,13 +405,19 @@ public class CameraSource {
     // only way to select the best size, but it provides a decent tradeoff between using the
     // closest aspect ratio vs. using the closest pixel area.
     SizePair selectedPair = null;
+    boolean selectedMeetsMinimum = false;
     int minDiff = Integer.MAX_VALUE;
     for (SizePair sizePair : validPreviewSizes) {
       Size size = sizePair.preview;
+      boolean meetsMinimum =
+          size.getWidth() >= desiredWidth && size.getHeight() >= desiredHeight;
       int diff =
           Math.abs(size.getWidth() - desiredWidth) + Math.abs(size.getHeight() - desiredHeight);
-      if (diff < minDiff) {
+      if (selectedPair == null
+          || (meetsMinimum && !selectedMeetsMinimum)
+          || (meetsMinimum == selectedMeetsMinimum && diff < minDiff)) {
         selectedPair = sizePair;
+        selectedMeetsMinimum = meetsMinimum;
         minDiff = diff;
       }
     }

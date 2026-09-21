@@ -40,6 +40,7 @@ import com.google.mlkit.vision.demo.java.barcodescanner.BarcodeScannerProcessor;
 import com.google.mlkit.vision.demo.java.facedetector.FaceDetectorProcessor;
 import com.google.mlkit.vision.demo.java.facemeshdetector.FaceMeshDetectorProcessor;
 import com.google.mlkit.vision.demo.java.labeldetector.LabelDetectorProcessor;
+import com.google.mlkit.vision.demo.java.neckposture.NeckPostureProcessor;
 import com.google.mlkit.vision.demo.java.objectdetector.ObjectDetectorProcessor;
 import com.google.mlkit.vision.demo.java.posedetector.PoseDetectorProcessor;
 import com.google.mlkit.vision.demo.java.segmenter.SegmenterProcessor;
@@ -73,6 +74,7 @@ public final class LivePreviewActivity extends AppCompatActivity
   private static final String IMAGE_LABELING = "Image Labeling";
   private static final String IMAGE_LABELING_CUSTOM = "Custom Image Labeling (Birds)";
   private static final String CUSTOM_AUTOML_LABELING = "Custom AutoML Image Labeling (Flower)";
+  private static final String NECK_POSTURE_MEASUREMENT = "Neck Posture Measurement";
   private static final String POSE_DETECTION = "Pose Detection";
   private static final String SELFIE_SEGMENTATION = "Selfie Segmentation";
   private static final String TEXT_RECOGNITION_LATIN = "Text Recognition Latin";
@@ -87,7 +89,7 @@ public final class LivePreviewActivity extends AppCompatActivity
   private CameraSource cameraSource = null;
   private CameraSourcePreview preview;
   private GraphicOverlay graphicOverlay;
-  private String selectedModel = OBJECT_DETECTION;
+  private String selectedModel = NECK_POSTURE_MEASUREMENT;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -107,6 +109,7 @@ public final class LivePreviewActivity extends AppCompatActivity
 
     Spinner spinner = findViewById(R.id.spinner);
     List<String> options = new ArrayList<>();
+    options.add(NECK_POSTURE_MEASUREMENT);
     options.add(OBJECT_DETECTION);
     options.add(OBJECT_DETECTION_CUSTOM);
     options.add(CUSTOM_AUTOML_OBJECT_DETECTION);
@@ -300,6 +303,10 @@ public final class LivePreviewActivity extends AppCompatActivity
                   rescaleZ,
                   runClassification,
                   /* isStreamMode = */ true));
+          break;
+        case NECK_POSTURE_MEASUREMENT:
+          Log.i(TAG, "Using Neck Posture Processor");
+          cameraSource.setMachineLearningFrameProcessor(new NeckPostureProcessor(this));
           break;
         case SELFIE_SEGMENTATION:
           cameraSource.setMachineLearningFrameProcessor(new SegmenterProcessor(this));
