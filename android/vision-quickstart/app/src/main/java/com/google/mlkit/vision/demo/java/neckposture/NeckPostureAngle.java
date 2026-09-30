@@ -19,16 +19,7 @@ final class NeckPostureAngle {
   }
 
   static double calculate(PointF ear, PointF shoulder) {
-    if (!isFinite(ear.x) || !isFinite(ear.y) || !isFinite(shoulder.x) || !isFinite(shoulder.y)) {
-      return Double.NaN;
-    }
-
-    double dx = Math.abs(ear.x - shoulder.x);
-    double dy = shoulder.y - ear.y;
-    if (dy <= 0 || Math.hypot(dx, dy) < 1) {
-      return Double.NaN;
-    }
-    return Math.toDegrees(Math.atan2(dy, dx));
+    return CvaMath.angle(ear.x, ear.y, shoulder.x, shoulder.y);
   }
 
   private static boolean isFinite(float value) {
