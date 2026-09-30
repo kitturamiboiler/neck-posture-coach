@@ -9,7 +9,6 @@ import com.google.android.gms.tasks.Tasks;
 import com.google.mlkit.vision.common.InputImage;
 import com.google.mlkit.vision.demo.GraphicOverlay;
 import com.google.mlkit.vision.demo.java.VisionProcessorBase;
-import com.google.mlkit.vision.demo.preference.PreferenceUtils;
 import com.google.mlkit.vision.face.Face;
 import com.google.mlkit.vision.face.FaceDetection;
 import com.google.mlkit.vision.face.FaceDetector;
@@ -19,6 +18,7 @@ import com.google.mlkit.vision.pose.Pose;
 import com.google.mlkit.vision.pose.PoseDetection;
 import com.google.mlkit.vision.pose.PoseDetector;
 import com.google.mlkit.vision.pose.PoseLandmark;
+import com.google.mlkit.vision.pose.accurate.AccuratePoseDetectorOptions;
 import java.util.List;
 import java.util.Locale;
 
@@ -28,14 +28,21 @@ public final class NeckPostureProcessor
 
   private static final String TAG = "NeckPostureProcessor";
   private static final float MIN_SHOULDER_CONFIDENCE = 0.70f;
-  private static final float SMOOTHING_ALPHA = 0.20f;
+  // ponytail: yaw is a provisional frontal-face gate, not proof of a true side-on body pose.
+  private static final float MIN_SIDE_YAW_DEGREES = 36f;
+  public static final int MAX_SHOULDER_OFFSET_PIXELS = 80;
 
   private final FaceDetector faceDetector;
   private final PoseDetector poseDetector;
   private long lastLogMs;
-  private PointF smoothedEar;
-  private PointF smoothedShoulder;
-  private int smoothedSide;
+  private int shoulderOffsetPixels;
+
+  public void setShoulderOffsetPixels(int pixels) {
+    if (pixels < 0 || pixels > MAX_SHOULDER_OFFSET_PIXELS) {
+      throw new IllegalArgumentException("Shoulder offset outside adjustment range");
+    }
+    shoulderOffsetPixels = pixels;
+  }
 
   public NeckPostureProcessor(Context context) {
     super(context);
@@ -49,7 +56,10 @@ public final class NeckPostureProcessor
             .build();
     faceDetector = FaceDetection.getClient(faceOptions);
     poseDetector =
-        PoseDetection.getClient(PreferenceUtils.getPoseDetectorOptionsForLivePreview(context));
+        PoseDetection.getClient(
+            new AccuratePoseDetectorOptions.Builder()
+                .setDetectorMode(AccuratePoseDetectorOptions.STREAM_MODE)
+                .build());
   }
 
   @Override
@@ -74,9 +84,12 @@ public final class NeckPostureProcessor
   @Override
   protected void onSuccess(
       @NonNull DetectionResult result, @NonNull GraphicOverlay graphicOverlay) {
-    Measurement measurement = smooth(measure(result.faces, result.pose));
+    Measurement measurement = measure(result.faces, result.pose,
+        graphicOverlay.getImageWidth(), graphicOverlay.getImageHeight());
+    measurement = adjustShoulder(measurement, shoulderOffsetPixels,
+        graphicOverlay.getImageWidth(), graphicOverlay.getImageHeight());
     graphicOverlay.add(new NeckPostureGraphic(graphicOverlay, result, measurement));
-    logMeasurement(measurement);
+    logMeasurement(result, measurement);
   }
 
   @Override
@@ -84,7 +97,10 @@ public final class NeckPostureProcessor
     Log.e(TAG, "Neck posture detection failed", e);
   }
 
-  private static Measurement measure(List<Face> faces, Pose pose) {
+  private static Measurement measure(List<Face> faces, Pose pose, int width, int height) {
+    if (faces.size() > 1) {
+      return Measurement.invalid("화면에 한 사람만 들어오게 해 주세요");
+    }
     Face face = largestFace(faces);
     if (face == null) {
       return Measurement.invalid("얼굴을 카메라 쪽으로 조금 돌려 주세요");
@@ -95,20 +111,29 @@ public final class NeckPostureProcessor
     if (leftEar == null && rightEar == null) {
       return Measurement.invalid("귀가 보이도록 옆으로 서 주세요");
     }
-    if (leftEar != null && rightEar != null) {
+    int side = sideForYaw(face.getHeadEulerAngleY());
+    if (side == 0) {
       return Measurement.invalid("정면이 아닌 옆모습을 보여 주세요");
     }
 
-    boolean useLeftSide = leftEar != null;
-    PointF ear = (useLeftSide ? leftEar : rightEar).getPosition();
+    boolean useLeftSide = side < 0;
+    FaceLandmark selectedEar = face.getLandmark(faceEarTypeForPoseSide(side));
+    if (selectedEar == null) {
+      return Measurement.invalid("카메라 쪽 귀가 검출되지 않았습니다");
+    }
+    PointF ear = selectedEar.getPosition();
     PoseLandmark shoulder =
         pose.getPoseLandmark(
             useLeftSide ? PoseLandmark.LEFT_SHOULDER : PoseLandmark.RIGHT_SHOULDER);
-    if (shoulder == null || shoulder.getInFrameLikelihood() < MIN_SHOULDER_CONFIDENCE) {
-      return Measurement.invalid("어깨가 화면에 들어오도록 조금 뒤로 서 주세요");
+    if (shoulder == null || !(shoulder.getInFrameLikelihood() >= MIN_SHOULDER_CONFIDENCE)) {
+      return Measurement.invalid("같은 쪽 어깨 검출이 불안정합니다");
     }
 
     PointF shoulderPosition = shoulder.getPosition();
+    if (!NeckPostureAngle.isInsideImage(ear, width, height)
+        || !NeckPostureAngle.isInsideImage(shoulderPosition, width, height)) {
+      return Measurement.invalid("귀와 어깨가 모두 화면 안에 들어오게 해 주세요");
+    }
     double angle = NeckPostureAngle.calculate(ear, shoulderPosition);
     if (Double.isNaN(angle)) {
       return Measurement.invalid("귀와 어깨 위치를 다시 맞춰 주세요");
@@ -116,29 +141,36 @@ public final class NeckPostureProcessor
     return Measurement.valid(ear, shoulderPosition, angle, useLeftSide ? -1 : 1);
   }
 
-  private Measurement smooth(Measurement measurement) {
-    if (!measurement.isValid()) {
-      return measurement;
+  static int sideForYaw(float yaw) {
+    if (Float.isNaN(yaw) || Float.isInfinite(yaw) || Math.abs(yaw) > 180f
+        || Math.abs(yaw) < MIN_SIDE_YAW_DEGREES) {
+      return 0;
     }
-    if (smoothedEar == null || smoothedSide != measurement.side) {
-      smoothedEar = new PointF(measurement.ear.x, measurement.ear.y);
-      smoothedShoulder = new PointF(measurement.shoulder.x, measurement.shoulder.y);
-      smoothedSide = measurement.side;
-    } else {
-      smoothedEar = interpolate(smoothedEar, measurement.ear);
-      smoothedShoulder = interpolate(smoothedShoulder, measurement.shoulder);
-    }
-    return Measurement.valid(
-        smoothedEar,
-        smoothedShoulder,
-        NeckPostureAngle.calculate(smoothedEar, smoothedShoulder),
-        smoothedSide);
+    return yaw < 0 ? -1 : 1;
   }
 
-  private static PointF interpolate(PointF previous, PointF current) {
-    return new PointF(
-        previous.x + SMOOTHING_ALPHA * (current.x - previous.x),
-        previous.y + SMOOTHING_ALPHA * (current.y - previous.y));
+  static Measurement adjustShoulder(Measurement raw, int pixels, int width, int height) {
+    if (!raw.isValid() || pixels == 0) {
+      return raw;
+    }
+    PointF adjusted = new PointF(raw.shoulder.x, raw.shoulder.y + pixels);
+    if (pixels < 0 || pixels > MAX_SHOULDER_OFFSET_PIXELS
+        || !NeckPostureAngle.isInsideImage(adjusted, width, height)) {
+      return Measurement.invalid("수동 보정점이 화면 밖입니다. 하강량을 줄여 주세요");
+    }
+    return new Measurement(raw.ear, adjusted, raw.shoulder,
+        NeckPostureAngle.calculate(raw.ear, adjusted), "수동 보정", raw.side);
+  }
+
+  static int faceEarTypeForPoseSide(int side) {
+    // Pinned by mirrored photo replay on face-detection 16.1.7: Face/Pose ear-side names differ.
+    if (side == -1) {
+      return FaceLandmark.RIGHT_EAR;
+    }
+    if (side == 1) {
+      return FaceLandmark.LEFT_EAR;
+    }
+    throw new IllegalArgumentException("A left or right pose side is required");
   }
 
   static Face largestFace(List<Face> faces) {
@@ -154,12 +186,23 @@ public final class NeckPostureProcessor
     return largest;
   }
 
-  private void logMeasurement(Measurement measurement) {
+  private void logMeasurement(DetectionResult result, Measurement measurement) {
     long nowMs = System.currentTimeMillis();
     if (nowMs - lastLogMs < 1000) {
       return;
     }
     lastLogMs = nowMs;
+    Face face = largestFace(result.faces);
+    if (face != null) {
+      Log.i(TAG, String.format(Locale.US, "face yaw=%.1f, leftEar=%s, rightEar=%s",
+          face.getHeadEulerAngleY(), face.getLandmark(FaceLandmark.LEFT_EAR) != null,
+          face.getLandmark(FaceLandmark.RIGHT_EAR) != null));
+      logFaceLandmark("LEFT_EAR", face.getLandmark(FaceLandmark.LEFT_EAR));
+      logFaceLandmark("RIGHT_EAR", face.getLandmark(FaceLandmark.RIGHT_EAR));
+      logFaceLandmark("NOSE_BASE", face.getLandmark(FaceLandmark.NOSE_BASE));
+    }
+    logShoulder("LEFT", result.pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER));
+    logShoulder("RIGHT", result.pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER));
     if (!measurement.isValid()) {
       Log.i(TAG, measurement.message);
       return;
@@ -168,12 +211,31 @@ public final class NeckPostureProcessor
         TAG,
         String.format(
             Locale.US,
-            "Ear=(%.1f, %.1f), shoulder=(%.1f, %.1f), angle=%.1f",
+            "ear=(%.1f, %.1f), shoulder=(%.1f, %.1f), angle=%.2f, rawAngle=%.2f, offsetY=%.1f, belowReference=%s",
             measurement.ear.x,
             measurement.ear.y,
             measurement.shoulder.x,
             measurement.shoulder.y,
-            measurement.angle));
+            measurement.angle,
+            measurement.rawAngle,
+            measurement.shoulder.y - measurement.rawShoulder.y,
+            measurement.isAdjusted() ? "excluded-manual" :
+                Boolean.toString(NeckPostureAngle.isBelowReference(measurement.angle))));
+  }
+
+  private static void logFaceLandmark(String name, FaceLandmark landmark) {
+    Log.i(TAG, landmark == null ? name + ": missing" : String.format(Locale.US,
+        "%s raw=(%.1f, %.1f)", name, landmark.getPosition().x, landmark.getPosition().y));
+  }
+
+  private static void logShoulder(String side, PoseLandmark shoulder) {
+    if (shoulder == null) {
+      Log.i(TAG, side + " shoulder: missing");
+      return;
+    }
+    Log.i(TAG, String.format(Locale.US, "%s shoulder raw=(%.1f, %.1f), confidence=%.3f",
+        side, shoulder.getPosition().x, shoulder.getPosition().y,
+        shoulder.getInFrameLikelihood()));
   }
 
   static final class DetectionResult {
@@ -189,28 +251,37 @@ public final class NeckPostureProcessor
   static final class Measurement {
     final PointF ear;
     final PointF shoulder;
+    final PointF rawShoulder;
+    final double rawAngle;
     final double angle;
     final String message;
     final int side;
 
-    private Measurement(PointF ear, PointF shoulder, double angle, String message, int side) {
+    private Measurement(PointF ear, PointF shoulder, PointF rawShoulder,
+        double angle, String message, int side) {
       this.ear = ear;
       this.shoulder = shoulder;
+      this.rawShoulder = rawShoulder;
+      this.rawAngle = rawShoulder == null ? Double.NaN : NeckPostureAngle.calculate(ear, rawShoulder);
       this.angle = angle;
       this.message = message;
       this.side = side;
     }
 
     static Measurement valid(PointF ear, PointF shoulder, double angle, int side) {
-      return new Measurement(ear, shoulder, angle, "측정 중", side);
+      return new Measurement(ear, shoulder, shoulder, angle, "측정 중", side);
     }
 
     static Measurement invalid(String message) {
-      return new Measurement(null, null, Double.NaN, message, 0);
+      return new Measurement(null, null, null, Double.NaN, message, 0);
+    }
+
+    boolean isAdjusted() {
+      return isValid() && shoulder.y != rawShoulder.y;
     }
 
     boolean isValid() {
-      return ear != null && shoulder != null && !Double.isNaN(angle);
+      return ear != null && shoulder != null && angle > 0 && angle <= 90;
     }
   }
 }

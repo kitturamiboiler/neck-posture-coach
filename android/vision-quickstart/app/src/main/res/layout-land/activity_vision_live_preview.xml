@@ -33,6 +33,13 @@
         android:layout_height="wrap_content"
         android:layout_gravity="top"/>
 
+    <include
+        android:id="@+id/shoulder_adjustment"
+        layout="@layout/shoulder_adjustment"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical" />
+
     <ToggleButton
         android:id="@+id/facing_switch"
         android:layout_width="48dp"

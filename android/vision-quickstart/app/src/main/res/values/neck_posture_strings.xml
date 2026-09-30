@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="shoulder_offset_label">어깨 수동 하강: %1$d 입력 px</string>
+</resources>

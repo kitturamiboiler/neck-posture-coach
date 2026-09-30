@@ -730,7 +730,7 @@ public class CameraSource {
         try {
           synchronized (processorLock) {
             frameProcessor.processByteBuffer(
-                data,
+                copyFrame(data),
                 new FrameMetadata.Builder()
                     .setWidth(previewSize.getWidth())
                     .setHeight(previewSize.getHeight())
@@ -745,6 +745,11 @@ public class CameraSource {
         }
       }
     }
+  }
+
+  // Camera1 recycles its array when processByteBuffer returns, before async detectors finish.
+  static ByteBuffer copyFrame(ByteBuffer cameraBuffer) {
+    return ByteBuffer.wrap(cameraBuffer.array().clone());
   }
 
   /** Cleans up graphicOverlay and child classes can do their cleanups as well . */

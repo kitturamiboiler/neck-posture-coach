@@ -4,7 +4,19 @@ import android.graphics.PointF;
 
 final class NeckPostureAngle {
 
+  // User-selected comparison only; not a validated diagnostic cutoff for shoulder landmarks.
+  static final double REFERENCE_ANGLE_DEGREES = 50.0;
+
   private NeckPostureAngle() {}
+
+  static boolean isBelowReference(double angle) {
+    return angle > 0 && angle < REFERENCE_ANGLE_DEGREES;
+  }
+
+  static boolean isInsideImage(PointF point, int width, int height) {
+    return isFinite(point.x) && isFinite(point.y)
+        && point.x >= 0 && point.x < width && point.y >= 0 && point.y < height;
+  }
 
   static double calculate(PointF ear, PointF shoulder) {
     if (!isFinite(ear.x) || !isFinite(ear.y) || !isFinite(shoulder.x) || !isFinite(shoulder.y)) {
