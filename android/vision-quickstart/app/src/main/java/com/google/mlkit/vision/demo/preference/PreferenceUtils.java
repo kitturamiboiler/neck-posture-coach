@@ -186,11 +186,7 @@ public class PreferenceUtils {
   }
 
   public static FaceDetectorOptions getFaceDetectorOptions(Context context) {
-    int landmarkMode =
-        getModeTypePreferenceValue(
-            context,
-            R.string.pref_key_live_preview_face_detection_landmark_mode,
-            FaceDetectorOptions.LANDMARK_MODE_NONE);
+    int landmarkMode = FaceDetectorOptions.LANDMARK_MODE_ALL;
     int contourMode =
         getModeTypePreferenceValue(
             context,

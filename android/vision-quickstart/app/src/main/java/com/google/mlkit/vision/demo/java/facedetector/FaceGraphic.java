@@ -57,6 +57,9 @@ public class FaceGraphic extends Graphic {
   private final Paint[] idPaints;
   private final Paint[] boxPaints;
   private final Paint[] labelPaints;
+  private final Paint targetLabelPaint;
+  private final Paint targetGuidePaint;
+  private final Paint targetPointPaint;
 
   private volatile Face face;
 
@@ -87,6 +90,17 @@ public class FaceGraphic extends Graphic {
       labelPaints[i].setColor(COLORS[i][1] /* background color */);
       labelPaints[i].setStyle(Paint.Style.FILL);
     }
+    targetPointPaint = new Paint();
+    targetPointPaint.setColor(Color.WHITE);
+    targetPointPaint.setStyle(Paint.Style.FILL);
+    targetGuidePaint = new Paint();
+    targetGuidePaint.setColor(Color.WHITE);
+    targetGuidePaint.setStyle(Paint.Style.STROKE);
+    targetGuidePaint.setStrokeWidth(BOX_STROKE_WIDTH / 2.0f);
+    targetLabelPaint = new Paint();
+    targetLabelPaint.setColor(Color.WHITE);
+    targetLabelPaint.setTextSize(ID_TEXT_SIZE);
+    targetLabelPaint.setShadowLayer(5.0f, 0f, 0f, Color.BLACK);
   }
 
   /** Draws the face annotations for position on the supplied canvas. */
@@ -167,6 +181,13 @@ public class FaceGraphic extends Graphic {
         labelPaints[colorID]);
     yLabelOffset += ID_TEXT_SIZE;
     canvas.drawRect(left, top, right, bottom, boxPaints[colorID]);
+    float guideBottom = bottom + ((bottom - top) * 0.55f);
+    canvas.drawRect(
+        left - ((right - left) * 0.35f),
+        top,
+        right + ((right - left) * 0.35f),
+        guideBottom,
+        targetGuidePaint);
     if (face.getTrackingId() != null) {
       canvas.drawText("ID: " + face.getTrackingId(), left, top + yLabelOffset, idPaints[colorID]);
       yLabelOffset += lineHeight;
@@ -254,6 +275,9 @@ public class FaceGraphic extends Graphic {
     drawFaceLandmark(canvas, FaceLandmark.RIGHT_EYE);
     drawFaceLandmark(canvas, FaceLandmark.LEFT_CHEEK);
     drawFaceLandmark(canvas, FaceLandmark.RIGHT_CHEEK);
+    drawTargetFaceLandmark(canvas, "R ear", FaceLandmark.LEFT_EAR, guideBottom);
+    drawTargetFaceLandmark(canvas, "L ear", FaceLandmark.RIGHT_EAR, guideBottom);
+    drawTargetFaceLandmark(canvas, "Nose", FaceLandmark.NOSE_BASE, 0);
   }
 
   private void drawFaceLandmark(Canvas canvas, @LandmarkType int landmarkType) {
@@ -265,5 +289,24 @@ public class FaceGraphic extends Graphic {
           FACE_POSITION_RADIUS,
           facePositionPaint);
     }
+  }
+
+  private void drawTargetFaceLandmark(
+      Canvas canvas, String label, @LandmarkType int landmarkType, float guideBottom) {
+    FaceLandmark faceLandmark = face.getLandmark(landmarkType);
+    if (faceLandmark == null) {
+      return;
+    }
+    float x = translateX(faceLandmark.getPosition().x);
+    float y = translateY(faceLandmark.getPosition().y);
+    if (guideBottom > y) {
+      canvas.drawLine(x, y, x, guideBottom, targetGuidePaint);
+    }
+    canvas.drawCircle(x, y, FACE_POSITION_RADIUS * 2, targetPointPaint);
+    canvas.drawText(
+        label,
+        x - (targetLabelPaint.measureText(label) / 2.0f),
+        y - (FACE_POSITION_RADIUS * 2.5f),
+        targetLabelPaint);
   }
 }

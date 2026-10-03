@@ -27,6 +27,8 @@ import android.widget.ArrayAdapter;
 import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.Spinner;
+import android.widget.SeekBar;
+import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 import com.google.android.gms.common.annotation.KeepName;
@@ -40,6 +42,7 @@ import com.google.mlkit.vision.demo.java.barcodescanner.BarcodeScannerProcessor;
 import com.google.mlkit.vision.demo.java.facedetector.FaceDetectorProcessor;
 import com.google.mlkit.vision.demo.java.facemeshdetector.FaceMeshDetectorProcessor;
 import com.google.mlkit.vision.demo.java.labeldetector.LabelDetectorProcessor;
+import com.google.mlkit.vision.demo.java.neckposture.NeckPostureProcessor;
 import com.google.mlkit.vision.demo.java.objectdetector.ObjectDetectorProcessor;
 import com.google.mlkit.vision.demo.java.posedetector.PoseDetectorProcessor;
 import com.google.mlkit.vision.demo.java.segmenter.SegmenterProcessor;
@@ -73,6 +76,7 @@ public final class LivePreviewActivity extends AppCompatActivity
   private static final String IMAGE_LABELING = "Image Labeling";
   private static final String IMAGE_LABELING_CUSTOM = "Custom Image Labeling (Birds)";
   private static final String CUSTOM_AUTOML_LABELING = "Custom AutoML Image Labeling (Flower)";
+  private static final String NECK_POSTURE_MEASUREMENT = "Neck Posture Measurement";
   private static final String POSE_DETECTION = "Pose Detection";
   private static final String SELFIE_SEGMENTATION = "Selfie Segmentation";
   private static final String TEXT_RECOGNITION_LATIN = "Text Recognition Latin";
@@ -87,7 +91,9 @@ public final class LivePreviewActivity extends AppCompatActivity
   private CameraSource cameraSource = null;
   private CameraSourcePreview preview;
   private GraphicOverlay graphicOverlay;
-  private String selectedModel = OBJECT_DETECTION;
+  private String selectedModel = NECK_POSTURE_MEASUREMENT;
+  private NeckPostureProcessor neckPostureProcessor;
+  private SeekBar shoulderOffset;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -105,8 +111,22 @@ public final class LivePreviewActivity extends AppCompatActivity
       Log.d(TAG, "graphicOverlay is null");
     }
 
+    shoulderOffset = findViewById(R.id.shoulder_offset);
+    shoulderOffset.setMax(NeckPostureProcessor.MAX_SHOULDER_OFFSET_PIXELS);
+    shoulderOffset.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+      @Override
+      public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+        updateShoulderOffset(progress);
+      }
+
+      @Override public void onStartTrackingTouch(SeekBar seekBar) {}
+      @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+    });
+    updateShoulderOffset(0);
+
     Spinner spinner = findViewById(R.id.spinner);
     List<String> options = new ArrayList<>();
+    options.add(NECK_POSTURE_MEASUREMENT);
     options.add(OBJECT_DETECTION);
     options.add(OBJECT_DETECTION_CUSTOM);
     options.add(CUSTOM_AUTOML_OBJECT_DETECTION);
@@ -166,6 +186,7 @@ public final class LivePreviewActivity extends AppCompatActivity
   @Override
   public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
     Log.d(TAG, "Set facing");
+    shoulderOffset.setProgress(0);
     if (cameraSource != null) {
       if (isChecked) {
         cameraSource.setFacing(CameraSource.CAMERA_FACING_FRONT);
@@ -178,6 +199,10 @@ public final class LivePreviewActivity extends AppCompatActivity
   }
 
   private void createCameraSource(String model) {
+    neckPostureProcessor = null;
+    shoulderOffset.setProgress(0);
+    findViewById(R.id.shoulder_adjustment).setVisibility(
+        NECK_POSTURE_MEASUREMENT.equals(model) ? View.VISIBLE : View.GONE);
     // If there's no existing cameraSource, create one.
     if (cameraSource == null) {
       cameraSource = new CameraSource(this, graphicOverlay);
@@ -301,6 +326,11 @@ public final class LivePreviewActivity extends AppCompatActivity
                   runClassification,
                   /* isStreamMode = */ true));
           break;
+        case NECK_POSTURE_MEASUREMENT:
+          Log.i(TAG, "Using Neck Posture Processor");
+          neckPostureProcessor = new NeckPostureProcessor(this);
+          cameraSource.setMachineLearningFrameProcessor(neckPostureProcessor);
+          break;
         case SELFIE_SEGMENTATION:
           cameraSource.setMachineLearningFrameProcessor(new SegmenterProcessor(this));
           break;
@@ -317,6 +347,14 @@ public final class LivePreviewActivity extends AppCompatActivity
               "Can not create image processor: " + e.getMessage(),
               Toast.LENGTH_LONG)
           .show();
+    }
+  }
+
+  private void updateShoulderOffset(int pixels) {
+    ((TextView) findViewById(R.id.shoulder_offset_label)).setText(
+        getString(R.string.shoulder_offset_label, pixels));
+    if (neckPostureProcessor != null) {
+      neckPostureProcessor.setShoulderOffsetPixels(pixels);
     }
   }
 

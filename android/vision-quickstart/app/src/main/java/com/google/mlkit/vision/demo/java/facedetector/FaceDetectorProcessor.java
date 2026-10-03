@@ -39,6 +39,7 @@ public class FaceDetectorProcessor extends VisionProcessorBase<List<Face>> {
   private static final String TAG = "FaceDetectorProcessor";
 
   private final FaceDetector detector;
+  private long lastFaceLandmarkLogMs;
 
   public FaceDetectorProcessor(Context context) {
     super(context);
@@ -62,8 +63,34 @@ public class FaceDetectorProcessor extends VisionProcessorBase<List<Face>> {
   protected void onSuccess(@NonNull List<Face> faces, @NonNull GraphicOverlay graphicOverlay) {
     for (Face face : faces) {
       graphicOverlay.add(new FaceGraphic(graphicOverlay, face));
+      logFaceLandmarks(face);
       logExtrasForTesting(face);
     }
+  }
+
+  private void logFaceLandmarks(Face face) {
+    long nowMs = System.currentTimeMillis();
+    if (nowMs - lastFaceLandmarkLogMs < 1000) {
+      return;
+    }
+    lastFaceLandmarkLogMs = nowMs;
+
+    Log.i(
+        TAG,
+        "Face landmarks: "
+            + formatLandmark("leftEar", face.getLandmark(FaceLandmark.LEFT_EAR))
+            + ", "
+            + formatLandmark("rightEar", face.getLandmark(FaceLandmark.RIGHT_EAR))
+            + ", "
+            + formatLandmark("nose", face.getLandmark(FaceLandmark.NOSE_BASE)));
+  }
+
+  private static String formatLandmark(String name, FaceLandmark landmark) {
+    if (landmark == null) {
+      return name + "=missing";
+    }
+    PointF position = landmark.getPosition();
+    return String.format(Locale.US, "%s=(x=%.1f,y=%.1f)", name, position.x, position.y);
   }
 
   private static void logExtrasForTesting(Face face) {

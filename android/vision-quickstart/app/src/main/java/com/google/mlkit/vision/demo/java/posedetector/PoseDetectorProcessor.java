@@ -29,6 +29,7 @@ import com.google.mlkit.vision.pose.Pose;
 import com.google.mlkit.vision.pose.PoseDetection;
 import com.google.mlkit.vision.pose.PoseDetector;
 import com.google.mlkit.vision.pose.PoseDetectorOptionsBase;
+import com.google.mlkit.vision.pose.PoseLandmark;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -48,6 +49,7 @@ public class PoseDetectorProcessor
   private final boolean isStreamMode;
   private final Context context;
   private final Executor classificationExecutor;
+  private long lastPostureLandmarkLogMs;
 
   private PoseClassifierProcessor poseClassifierProcessor;
   /** Internal class to hold Pose and classification results. */
@@ -136,6 +138,7 @@ public class PoseDetectorProcessor
   protected void onSuccess(
       @NonNull PoseWithClassification poseWithClassification,
       @NonNull GraphicOverlay graphicOverlay) {
+    logPostureLandmarks(poseWithClassification.pose);
     graphicOverlay.add(
         new PoseGraphic(
             graphicOverlay,
@@ -155,5 +158,36 @@ public class PoseDetectorProcessor
   protected boolean isMlImageEnabled(Context context) {
     // Use MlImage in Pose Detection by default, change it to OFF to switch to InputImage.
     return true;
+  }
+
+  private void logPostureLandmarks(Pose pose) {
+    long nowMs = System.currentTimeMillis();
+    if (nowMs - lastPostureLandmarkLogMs < 1000) {
+      return;
+    }
+    lastPostureLandmarkLogMs = nowMs;
+
+    Log.i(
+        TAG,
+        "Posture landmarks: "
+            + formatLandmark("leftEar", pose.getPoseLandmark(PoseLandmark.LEFT_EAR))
+            + ", "
+            + formatLandmark("rightEar", pose.getPoseLandmark(PoseLandmark.RIGHT_EAR))
+            + ", "
+            + formatLandmark("leftShoulder", pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER))
+            + ", "
+            + formatLandmark("rightShoulder", pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)));
+  }
+
+  private static String formatLandmark(String name, PoseLandmark landmark) {
+    if (landmark == null) {
+      return name + "=missing";
+    }
+    return String.format(
+        "%s=(x=%.1f,y=%.1f,confidence=%.2f)",
+        name,
+        landmark.getPosition().x,
+        landmark.getPosition().y,
+        landmark.getInFrameLikelihood());
   }
 }
