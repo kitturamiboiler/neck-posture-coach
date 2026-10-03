@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1080" viewBox="0 0 1800 1080" role="img" aria-labelledby="title description">
+  <title id="title">목 자세 코치 Android 앱 아키텍처</title>
+  <desc id="description">사용자가 목 자세 코치 화면에서 사진 점검 또는 운동 루틴을 선택한다. 사진 점검은 CameraX 촬영, ML Kit 얼굴 검출, 귀와 C7 수동 확인, CVA 계산을 거친다. 운동 루틴은 타이머와 수행 확인을 거친다. 사진은 PostureSession 메모리에 두며 목표, 측정값, 실천 기록은 기기 안의 PostureStore에 저장한다. 기존 실시간 귀-어깨각 실험은 아래에 별도로 표시한다.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 1 1 L 9 5 L 1 9 Z" fill="#52636b"/>
+    </marker>
+    <marker id="teal-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 1 1 L 9 5 L 1 9 Z" fill="#138779"/>
+    </marker>
+    <marker id="amber-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 1 1 L 9 5 L 1 9 Z" fill="#b97920"/>
+    </marker>
+    <style>
+      text { font-family: 'Malgun Gothic', 'Noto Sans CJK KR', sans-serif; fill: #203038; }
+      .title { font-size: 34px; font-weight: 700; }
+      .subtitle { font-size: 17px; fill: #596b72; }
+      .zone { font-size: 19px; font-weight: 700; }
+      .name { font-size: 19px; font-weight: 700; text-anchor: middle; }
+      .label { font-size: 16px; text-anchor: middle; }
+      .small { font-size: 14px; fill: #5c6c72; text-anchor: middle; }
+      .note { font-size: 14px; fill: #5c6c72; }
+      .card { fill: #fff; stroke: #b9c7ca; stroke-width: 1.5; rx: 8; }
+      .wire { fill: none; stroke: #52636b; stroke-width: 2.2; marker-end: url(#arrow); stroke-linejoin: round; }
+      .teal-wire { fill: none; stroke: #138779; stroke-width: 2.6; marker-end: url(#teal-arrow); stroke-linejoin: round; }
+      .amber-wire { fill: none; stroke: #b97920; stroke-width: 2.6; marker-end: url(#amber-arrow); stroke-linejoin: round; }
+    </style>
+  </defs>
+  <rect width="1800" height="1080" fill="#fff"/>
+  <text class="title" x="78" y="73">목 자세 코치 · Android 앱 아키텍처</text>
+  <text class="subtitle" x="80" y="112">사진 3장 점검과 운동 습관 기록 · 기기 내부 처리 · 2026-10-03 구현 기준</text>
+  <rect x="1380" y="48" width="330" height="46" fill="#e8f5f2" rx="7"/>
+  <text x="1545" y="77" class="label" fill="#146e64">서버 없이 기기에서 동작</text>
+
+  <rect x="72" y="148" width="1656" height="876" rx="8" fill="#fafcfc" stroke="#aebfc2" stroke-width="2"/>
+  <text class="zone" x="105" y="190">Android 기기</text>
+
+  <rect x="104" y="412" width="194" height="153" class="card"/>
+  <rect x="104" y="412" width="194" height="8" rx="4" fill="#334e5a"/>
+  <text class="name" x="201" y="474">사용자</text>
+  <text class="label" x="201" y="509">목표 설정 · 촬영</text>
+  <text class="label" x="201" y="537">운동 완료 확인</text>
+
+  <rect x="342" y="262" width="282" height="448" class="card"/>
+  <rect x="342" y="262" width="282" height="9" rx="4" fill="#334e5a"/>
+  <text class="zone" x="366" y="305">앱 화면</text>
+  <text class="name" x="483" y="355">PostureCoachActivity</text>
+  <text class="small" x="483" y="384">시작 화면과 이동 관리</text>
+  <line x1="367" y1="410" x2="599" y2="410" stroke="#d8e1e3"/>
+  <text class="label" x="483" y="459">목표 설정</text>
+  <text class="label" x="483" y="505">오늘 · 운동 루틴</text>
+  <text class="label" x="483" y="551">사진 점검 · 기록</text>
+  <text class="label" x="483" y="597">설정 · 실험 화면</text>
+  <text class="small" x="483" y="665">공통 화면 요소: CoachUi</text>
+  <path class="wire" d="M 298 488 H 342"/>
+
+  <rect x="669" y="215" width="611" height="334" rx="8" fill="#f1faf8" stroke="#93c5bc" stroke-width="2"/>
+  <text class="zone" x="697" y="250" fill="#0f6b60">사진 점검 · CVA</text>
+  <text class="note" x="1240" y="250" text-anchor="end">3장 촬영</text>
+
+  <rect x="696" y="282" width="176" height="94" class="card"/>
+  <text class="name" x="784" y="317">CameraX</text>
+  <text class="label" x="784" y="347">PostureCaptureActivity</text>
+  <text class="small" x="784" y="366">사진 촬영</text>
+
+  <rect x="898" y="282" width="170" height="94" class="card"/>
+  <text class="name" x="983" y="317">ML Kit</text>
+  <text class="label" x="983" y="347">Face Detection</text>
+  <text class="small" x="983" y="366">귀 후보 제안</text>
+
+  <rect x="1094" y="282" width="159" height="94" class="card"/>
+  <text class="name" x="1173" y="317">기준점 확인</text>
+  <text class="label" x="1173" y="347">귀 · C7 지정</text>
+  <text class="small" x="1173" y="366">사용자 확인</text>
+
+  <rect x="696" y="423" width="176" height="92" class="card"/>
+  <text class="name" x="784" y="458">PostureSession</text>
+  <text class="label" x="784" y="486">촬영 중 사진 · 점</text>
+  <text class="small" x="784" y="505">메모리 전용</text>
+
+  <rect x="898" y="423" width="170" height="92" class="card"/>
+  <text class="name" x="983" y="458">PosturePhotoView</text>
+  <text class="label" x="983" y="486">점 · 선 · 터치 표시</text>
+
+  <rect x="1094" y="423" width="159" height="92" class="card"/>
+  <text class="name" x="1173" y="458">CvaMath</text>
+  <text class="label" x="1173" y="485">각도 · 중앙값</text>
+  <text class="small" x="1173" y="505">반복성 확인</text>
+
+  <path class="teal-wire" d="M 624 349 H 649 V 329 H 696"/>
+  <path class="teal-wire" d="M 872 329 H 898"/>
+  <path class="teal-wire" d="M 1068 329 H 1094"/>
+  <path class="teal-wire" d="M 784 376 V 423"/>
+  <path class="teal-wire" d="M 1173 376 V 401 H 983 V 423"/>
+  <path class="teal-wire" d="M 1068 469 H 1094"/>
+
+  <rect x="669" y="583" width="611" height="193" rx="8" fill="#fff8ee" stroke="#e2bd81" stroke-width="2"/>
+  <text class="zone" x="697" y="618" fill="#98611e">운동 습관</text>
+  <rect x="696" y="647" width="216" height="91" class="card"/>
+  <text class="name" x="804" y="681">운동 안내 · 타이머</text>
+  <text class="label" x="804" y="710">PostureCoachActivity</text>
+  <rect x="963" y="647" width="229" height="91" class="card"/>
+  <text class="name" x="1077" y="681">수행 완료 확인</text>
+  <text class="label" x="1077" y="710">오늘의 실천 기록</text>
+  <path class="amber-wire" d="M 624 636 H 648 V 692 H 696"/>
+  <path class="amber-wire" d="M 912 692 H 963"/>
+
+  <rect x="1322" y="215" width="351" height="561" rx="8" fill="#f6f8fa" stroke="#aebfc2" stroke-width="2"/>
+  <text class="zone" x="1350" y="250">기기 내 저장</text>
+  <text class="small" x="1497" y="282">PostureStore</text>
+  <rect x="1350" y="311" width="295" height="115" class="card"/>
+  <text class="name" x="1497" y="350">SharedPreferences</text>
+  <text class="label" x="1497" y="380">목표 기간 · 하루 운동 시간</text>
+  <text class="small" x="1497" y="405">운동 계획 설정</text>
+  <rect x="1350" y="472" width="295" height="162" class="card"/>
+  <text class="name" x="1497" y="513">SQLite</text>
+  <text class="label" x="1497" y="549">각도 3개 · 중앙값 · 촬영 조건</text>
+  <text class="label" x="1497" y="583">날짜별 운동 실천 기록</text>
+  <text class="small" x="1497" y="611">기록 조회 · 삭제</text>
+  <text class="small" x="1497" y="701">사진 파일은 저장하지 않음</text>
+  <path class="teal-wire" d="M 1253 469 H 1300 V 531 H 1350"/>
+  <path class="amber-wire" d="M 1192 692 H 1291 V 597 H 1350"/>
+  <text class="note" x="1263" y="454">측정값</text>
+  <text class="note" x="1218" y="679">실천일</text>
+  <path d="M 1497 776 V 807 H 482 V 710" fill="none" stroke="#84949a" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+  <text class="note" x="1002" y="801">목표 · 측정 기록 · 실천일 조회</text>
+
+  <rect x="104" y="844" width="1569" height="143" rx="8" fill="#f5f6f6" stroke="#b9c2c5" stroke-width="2" stroke-dasharray="9 6"/>
+  <text class="zone" x="131" y="881" fill="#5c6b70">기존 실시간 귀-어깨각 실험</text>
+  <text class="note" x="1645" y="881" text-anchor="end">설정에서 진입 · 사진 CVA와 별도</text>
+  <rect x="387" y="901" width="295" height="57" class="card"/>
+  <text class="label" x="535" y="937">LivePreviewActivity</text>
+  <rect x="753" y="901" width="335" height="57" class="card"/>
+  <text class="label" x="920" y="937">NeckPostureProcessor · Face + Pose</text>
+  <rect x="1160" y="901" width="319" height="57" class="card"/>
+  <text class="label" x="1320" y="937">NeckPostureGraphic · 화면 표시</text>
+  <path class="wire" d="M 682 929 H 753"/>
+  <path class="wire" d="M 1088 929 H 1160"/>
+  <text class="note" x="134" y="925">샘플 경로</text>
+</svg>
