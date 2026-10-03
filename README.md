@@ -12,6 +12,8 @@ Google ML Kit `vision-quickstart` 샘플을 기반으로 만드는 Android 거�
 
 개발 구조: [Android 클래스별 역할과 연결 관계](docs/CLASS_ROLES.md)
 
+구조도: [Android 앱 아키텍처 이미지](docs/ARCHITECTURE.png) · [확대 가능한 SVG](docs/ARCHITECTURE.svg)
+
 **현재 단계: 갤탭에서 핵심 흐름을 확인한 개발용 앱. Google Play 미등록.**
 
 작업 브랜치: `feat/pose-landmark-log` · `dev` 미병합.
@@ -40,6 +42,7 @@ Google ML Kit `vision-quickstart` 샘플을 기반으로 만드는 Android 거�
 | 2026-09-30 | 오늘 작업 마감·후속 범위 결정 | S20 Ultra 검증, 제공 시안 반영, Google Play 출시를 다음 단계로 정리 |
 | 2026-10-03 | 비개발자 조원용 진행 공유 문서 작성 | 기존 실험 방법·결과·한계를 쉽게 정리하고 발표용 요약 추가. 신규 실촬영은 하지 않음 |
 | 2026-10-03 | 앱 클래스별 역할 문서화 | 제품 사진 점검, 기존 실시간 실험, 검사 코드를 분리해 정리 |
+| 2026-10-03 | 앱 아키텍처 구조도 작성 | 사진 점검·운동 습관·기기 내 저장 흐름과 기존 실시간 실험 연결 표시 |
 
 ### 다음 작업
 
