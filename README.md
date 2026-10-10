@@ -6,6 +6,8 @@ Google ML Kit `vision-quickstart` 샘플을 기반으로 만드는 Android 거�
 
 ## 진행 현황
 
+발표·공유용 최신본: [진행 보고서](docs/PROGRESS_PRESENTATION_2026-10-10.md) · [PDF 6쪽](docs/PROGRESS_PRESENTATION_2026-10-10.pdf). 표지·목차와 본문 4쪽으로 구성하며, 앱 참고 화면·단계별 작업 도식·촬영 결과 그래프·일정 칸반을 중심으로 정리했습니다.
+
 **마지막 갱신: 2026-10-10 (한국 시간) · 코드 대조: 2026-10-10 · 실촬영 결과 기준: 2026-09-30**
 
 최신 진행 보고: [상세 보고서](docs/PROGRESS_REPORT_2026-10-10.md) · [상세 PDF 12쪽](docs/PROGRESS_REPORT_2026-10-10.pdf) · [요약본](docs/PROGRESS_SUMMARY_2026-10-10.md) · [요약 PDF 6쪽](docs/PROGRESS_SUMMARY_2026-10-10.pdf)
