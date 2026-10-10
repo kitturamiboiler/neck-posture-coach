@@ -1,0 +1,40 @@
+flowchart TB
+  user["사용자"]
+  subgraph habit["운동 습관"]
+    direction LR
+    goal["목표 설정"] --> today["오늘 화면"] --> routine["운동 안내·타이머"] --> practice["실제 수행 확인"]
+  end
+  subgraph photo["사진 점검"]
+    direction LR
+    capture["CameraX 사진 3장"] --> ear["ML Kit 귀 후보"] --> confirm["사용자 귀·C7 확인"] --> cva["각도·중앙값"] --> result["측정 결과"]
+  end
+  subgraph local["기기 내부 기록"]
+    direction LR
+    prefs["목표 설정 저장"]
+    db[("SQLite / 실천·측정 기록")]
+    history["동일 조건 기록 비교"]
+    db --> history
+  end
+  subgraph legacy["기존 ML Kit 실험"]
+    direction LR
+    settings["설정의 실험 화면"] --> live["실시간 카메라"] --> detect["Face·Pose 검출"] --> overlay["검출점·선 표시"]
+  end
+  user --> goal
+  today --> capture
+  user -. "사진별 기준점 확인" .-> confirm
+  goal --> prefs
+  practice --> db
+  result --> db
+  today -. "설정에서 진입" .-> settings
+  classDef habitNode fill:#EAF4F0,stroke:#24775E,color:#193C31;
+  classDef photoNode fill:#FFF3DB,stroke:#BD801C,color:#573A0D;
+  classDef localNode fill:#EAF1FA,stroke:#4874A3,color:#203D61;
+  classDef legacyNode fill:#F5F5F5,stroke:#89938F,color:#46524C;
+  class goal,today,routine,practice habitNode;
+  class capture,ear,confirm,cva,result photoNode;
+  class prefs,db,history localNode;
+  class settings,live,detect,overlay legacyNode;
+  style habit fill:transparent,stroke:#A5C3B8
+  style photo fill:transparent,stroke:#D5BD8D
+  style local fill:transparent,stroke:#A9BDD4
+  style legacy fill:transparent,stroke:#C7CECA
