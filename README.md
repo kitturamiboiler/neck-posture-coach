@@ -12,6 +12,8 @@ Google ML Kit `vision-quickstart` 샘플을 기반으로 만드는 Android 거�
 
 Android UI 초안: [Figma 편집 파일](https://www.figma.com/design/UVoh6FIEUxdfsjejy34Hbz) · [클릭형 프로토타입](https://www.figma.com/proto/UVoh6FIEUxdfsjejy34Hbz?node-id=7-22) · [프레임·컴포넌트·프로토타입 지침](docs/FIGMA_ANDROID_GUIDE.md)
 
+화면 설명 원본: [화면별 구성 및 구현 의도](docs/FIGMA_SCREEN_NOTES.md). Figma 설명 페이지 교체와 버튼 가운데 정렬 재검수는 MCP 호출 한도 및 브라우저 로그인 부재로 아직 반영하지 못했습니다.
+
 조원 시안 기준으로 공통 토큰·컴포넌트와 기본 클릭 흐름을 작성했습니다. Pretendard 교체, 운동 콘텐츠, 사진 기준점 조작, Present 사용 검토와 실제 Android 반영은 남아 있습니다. Figma에서 카메라·저장·타이머의 실제 기기 동작을 수행하는 것은 아닙니다.
 
 최신 진행 보고: [상세 보고서](docs/PROGRESS_REPORT_2026-10-10.md) · [상세 PDF 12쪽](docs/PROGRESS_REPORT_2026-10-10.pdf) · [요약본](docs/PROGRESS_SUMMARY_2026-10-10.md) · [요약 PDF 6쪽](docs/PROGRESS_SUMMARY_2026-10-10.pdf)
