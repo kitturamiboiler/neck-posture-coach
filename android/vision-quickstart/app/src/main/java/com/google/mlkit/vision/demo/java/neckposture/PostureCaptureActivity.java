@@ -99,7 +99,7 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
     stopCamera();
     state.clearPhotos();
     state.screen = "prepare";
-    LinearLayout body = CoachUi.page(this, "사진 점검");
+    LinearLayout body = CoachUi.page(this, "사진 점검", this::finish);
     CoachUi.text(body, "같은 조건으로, 자연스러운 옆모습", 20, true);
     CoachUi.text(body, "서 있는 자세 · 어깨 높이의 카메라 · 수평인 기기\n귀와 C7 표식이 함께 보이는 정확한 옆면", 16, false);
     CoachUi.text(body, "C7 위치는 먼저 전문가 또는 위치를 확인할 수 있는 도움을 받아 표식으로 남겨 주세요. 위치가 확실하지 않으면 이번 측정을 보류하세요.", 15, false);
@@ -123,6 +123,7 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
         ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 7);
       } else camera();
     });
+    CoachUi.styleButton(next, true);
     next.setEnabled(false);
     protocol.setOnCheckedChangeListener((button, checked) -> next.setEnabled(checked));
     CoachUi.button(body, "오늘로 돌아가기", android.R.drawable.ic_menu_revert, this::finish);
@@ -144,7 +145,7 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
     state.clearPhotos();
     state.screen = "camera";
     final int token = generation;
-    LinearLayout body = CoachUi.page(this, "자연스러운 옆모습");
+    LinearLayout body = CoachUi.page(this, "자연스러운 옆모습", this::onBackPressed);
     FrameLayout frame = new FrameLayout(this);
     int height = Math.max(220, Math.min(420, getResources().getConfiguration().screenHeightDp / 2));
     body.addView(frame, new LinearLayout.LayoutParams(-1, CoachUi.dp(this, height)));
@@ -161,6 +162,7 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
     frame.addView(cover, new FrameLayout.LayoutParams(-1, -1));
     status = CoachUi.text(body, "카메라 연결 중", 16, false);
     shutter = CoachUi.button(body, "촬영 시작", android.R.drawable.ic_menu_camera, this::startSequence);
+    CoachUi.styleButton(shutter, true);
     shutter.setEnabled(false);
     CoachUi.button(body, "취소", android.R.drawable.ic_menu_close_clear_cancel, this::preparation);
     ListenableFuture<ProcessCameraProvider> future = ProcessCameraProvider.getInstance(this);
@@ -247,7 +249,7 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
     final int token = ++generation;
     final int index = state.index;
     final Bitmap bitmap = state.photos.get(index);
-    LinearLayout body = CoachUi.page(this, "기준점 확인  " + (index + 1) + " / 3");
+    LinearLayout body = CoachUi.page(this, "기준점 확인  " + (index + 1) + " / 3", this::onBackPressed);
     PosturePhotoView photo = new PosturePhotoView(this);
     photo.photo(bitmap, state.ears[index], state.bases[index]);
     int height = Math.max(260, Math.min(520, getResources().getConfiguration().screenHeightDp / 2));
@@ -265,12 +267,17 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
       Button arrow = new Button(this);
       arrow.setText(labels[i]);
       arrow.setContentDescription(descriptions[i]);
+      arrow.setGravity(Gravity.CENTER);
+      arrow.setMinimumWidth(0);
+      arrow.setPadding(0, 0, 0, 0);
+      CoachUi.styleButton(arrow, false);
       arrow.setOnClickListener(v -> photo.nudge(dx[direction], dy[direction]));
       arrows.addView(arrow, new LinearLayout.LayoutParams(0, CoachUi.dp(this, 52), 1));
     }
     CheckBox verified = new CheckBox(this);
     verified.setText("귀·C7 위치와 자연스러운 옆모습을 확인했어요");
     verified.setTextColor(CoachUi.INK);
+    verified.setMinHeight(CoachUi.dp(this, 48));
     body.addView(verified);
     Button next = CoachUi.button(body, index == 2 ? "결과 확인" : "다음 사진",
         android.R.drawable.ic_media_next, () -> {
@@ -282,6 +289,7 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
           if (index < 2) { state.index++; annotate(); } else result();
         });
     next.setEnabled(false);
+    CoachUi.styleButton(next, true);
     photo.changed = () -> {
       state.ears[index] = photo.ear;
       state.bases[index] = photo.base;
@@ -348,27 +356,50 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
   private void result() {
     ++generation;
     state.screen = "result";
-    LinearLayout body = CoachUi.page(this, "사진 점검 결과");
+    LinearLayout body = CoachUi.page(this, "사진 점검 결과", this::onBackPressed);
     double median = CvaMath.median(state.angles);
     boolean consistent = CvaMath.repeatable(state.angles);
-    CoachUi.text(body, String.format(Locale.KOREA, "CVA %.1f°", median), 36, true);
-    CoachUi.text(body, String.format(Locale.KOREA, "%.1f°  ·  %.1f°  ·  %.1f°\n3회 측정의 중앙값",
-        state.angles[0], state.angles[1], state.angles[2]), 17, false);
+    LinearLayout summary = CoachUi.card(body, true);
+    CoachUi.text(summary, "대표 각도", 14, false).setGravity(Gravity.CENTER);
+    TextView angle = CoachUi.text(summary, String.format(Locale.KOREA, "%.1f°", median), 64, true);
+    angle.setTextColor(CoachUi.GREEN);
+    angle.setGravity(Gravity.CENTER);
+    androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(angle, 32, 64, 1,
+        android.util.TypedValue.COMPLEX_UNIT_SP);
+    CoachUi.text(summary, "세 값의 중앙값", 14, false).setGravity(Gravity.CENTER);
+    CoachUi.text(body, "사진별 측정값", 20, true);
+    LinearLayout samples = new LinearLayout(this);
+    boolean stacked = getResources().getConfiguration().fontScale > 1.3f;
+    samples.setOrientation(stacked ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
+    body.addView(samples, new LinearLayout.LayoutParams(-1, -2));
+    String[] labels = {"첫 사진", "두 번째", "세 번째"};
+    for (int i = 0; i < 3; i++) {
+      LinearLayout sample = CoachUi.card(samples, false);
+      LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(stacked ? -1 : 0, -2, stacked ? 0 : 1);
+      params.setMargins(CoachUi.dp(this, 4), CoachUi.dp(this, 8), CoachUi.dp(this, 4), CoachUi.dp(this, 8));
+      sample.setLayoutParams(params);
+      sample.setPadding(CoachUi.dp(this, 8), CoachUi.dp(this, 12), CoachUi.dp(this, 8), CoachUi.dp(this, 12));
+      CoachUi.text(sample, labels[i], 14, false).setGravity(Gravity.CENTER);
+      TextView value = CoachUi.text(sample, String.format(Locale.KOREA, "%.1f°", state.angles[i]), 22, true);
+      value.setGravity(Gravity.CENTER);
+    }
     CoachUi.text(body, consistent ? "반복 측정값 확인 완료" : "측정 차이가 커서 비교를 보류합니다", 20, true);
     CoachUi.text(body, consistent
         ? "이 값은 직접 확인한 귀·C7 기준의 참고값입니다. 수치만으로 거북목 진단이나 개선 여부를 확정하지 않습니다."
         : "촬영 자세나 기준점이 달라졌을 수 있습니다. 5° 편차 기준은 임시 품질 기준이며 임상 기준이 아닙니다.", 15, false);
-    CoachUi.text(body, "서 있는 옆모습 · " + state.side + " · " + state.camera + " 카메라", 15, false);
+    LinearLayout conditions = CoachUi.card(body, false);
+    CoachUi.text(conditions, "촬영 조건", 16, true);
+    CoachUi.text(conditions, "서 있는 옆모습 · " + state.side + " · " + state.camera + " 카메라", 15, false);
     CoachUi.text(body, "의도적으로 턱을 당긴 자세인지 사진만으로 확인할 수 없습니다.", 14, false);
     if (consistent) {
-      CoachUi.button(body, state.savedId >= 0 ? "저장 완료 · 오늘로" : "측정값 저장",
+      CoachUi.styleButton(CoachUi.button(body, state.savedId >= 0 ? "저장 완료 · 오늘로" : "결과 저장",
           android.R.drawable.ic_menu_save, () -> {
             try {
               if (state.savedId < 0) state.savedId = store.saveMeasurement(state.angles, state.protocol());
               state.clearPhotos();
               finish();
             } catch (RuntimeException e) { error("측정값을 저장하지 못했습니다. 다시 시도해 주세요."); }
-          });
+          }), true);
     }
     CoachUi.button(body, "기준점 다시 확인", android.R.drawable.ic_menu_edit, () -> {
       state.index = 0;
