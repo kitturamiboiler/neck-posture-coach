@@ -42,6 +42,7 @@ public final class PostureCoachActivity extends AppCompatActivity {
     if (!store.hasPlan()) setup();
     else if (state.screen.equals("routine")) routine();
     else if (state.screen.equals("history")) history();
+    else if (state.screen.equals("settings")) settings();
     else home();
   }
 
@@ -55,39 +56,40 @@ public final class PostureCoachActivity extends AppCompatActivity {
     CoachUi.text(body, "하루에 쓸 시간", 16, true);
     RadioGroup minutes = CoachUi.options(body, new String[]{"3분", "5분"}, 0);
     CoachUi.text(body, "사진 점검은 시작 · 중간 · 마지막에 진행합니다.\n사진은 저장하지 않고 기기에 측정값과 실천 기록만 남깁니다.", 15, false);
-    CoachUi.button(body, "이 목표로 시작", android.R.drawable.ic_media_play, () -> {
+    CoachUi.styleButton(CoachUi.button(body, "이 목표로 시작", android.R.drawable.ic_media_play, () -> {
       try {
         store.createPlan(CoachUi.selected(weeks) == 0 ? 2 : 4,
             CoachUi.selected(minutes) == 0 ? 3 : 5);
         state.routineRemaining = 0;
         home();
       } catch (RuntimeException e) { error("목표를 저장하지 못했습니다. 다시 시도해 주세요."); }
-    });
+    }), true);
     if (store.hasPlan()) CoachUi.button(body, "돌아가기", android.R.drawable.ic_menu_revert, this::home);
   }
 
   private void home() {
     pauseTimer();
     state.screen = "home";
-    LinearLayout body = CoachUi.page(this, "목 자세 코치");
+    LinearLayout body = CoachUi.page(this, "오늘");
     int total = store.weeks() * 7;
     int day = store.day();
-    CoachUi.text(body, day > total ? "목표 기간을 마쳤어요" : "오늘은 " + day + "일째", 22, true);
-    CoachUi.text(body, store.weeks() + "주 목표 · 하루 " + store.minutes() + "분", 16, false);
+    CoachUi.text(body, "오늘도 가볍게,\n꾸준히 실천해요.", 24, true);
+    LinearLayout goal = CoachUi.card(body, true);
+    CoachUi.text(goal, day > total ? "목표 기간을 마쳤어요" : "나의 목표 · " + day + "일차", 14, false);
+    CoachUi.text(goal, store.weeks() + "주 동안 하루 " + store.minutes() + "분", 20, true);
     ProgressBar progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
     progress.setMax(total);
     progress.setProgress(Math.min(day, total));
-    body.addView(progress, new LinearLayout.LayoutParams(-1, CoachUi.dp(this, 12)));
+    progress.setProgressTintList(android.content.res.ColorStateList.valueOf(CoachUi.GREEN));
+    goal.addView(progress, new LinearLayout.LayoutParams(-1, CoachUi.dp(this, 8)));
     List<String> days = store.practiceDays();
-    CoachUi.text(body, "실천 " + days.size() + "일 / 목표 " + total + "일", 16, false);
-    CoachUi.rule(body);
+    CoachUi.text(goal, "실천 " + days.size() + "일 / 목표 " + total + "일", 14, false);
+    LinearLayout practice = CoachUi.card(body, false);
     boolean done = store.practicedToday();
-    CoachUi.text(body, done ? "오늘의 실천 완료" : "오늘의 루틴", 20, true);
-    CoachUi.text(body, "가볍게 턱 당기기 · 편안한 목 돌리기\n움직임 사이에는 충분히 쉬어 주세요.", 16, false);
-    CoachUi.button(body, done ? "루틴 다시 보기" : "루틴 시작",
-        android.R.drawable.ic_media_play, this::routine);
-    CoachUi.rule(body);
-    CoachUi.text(body, "사진 점검", 20, true);
+    CoachUi.text(practice, "오늘의 실천", 20, true);
+    CoachUi.text(practice, done ? "오늘 운동을 기록했어요" : "오늘 운동을 아직 기록하지 않았어요", 14, false);
+    CoachUi.styleButton(CoachUi.button(practice, done ? "루틴 다시 보기" : "운동 시작",
+        android.R.drawable.ic_media_play, this::routine), true);
     List<PostureStore.Reading> readings = store.readings();
     int middle = total / 2;
     boolean midDone = false, endDone = false;
@@ -102,29 +104,32 @@ public final class PostureCoachActivity extends AppCompatActivity {
         : day >= middle && !midDone ? "중간 점검을 할 때예요"
         : day < middle ? "다음 점검: " + middle + "일째"
         : !endDone ? "다음 점검: " + total + "일째" : "목표 기간의 점검을 마쳤어요";
-    CoachUi.text(body, checkpoint, 16, false);
+    CoachUi.text(body, checkpoint, 14, false);
     if (!readings.isEmpty()) {
       CoachUi.text(body, String.format(Locale.KOREA, "최근 CVA %.1f°", readings.get(0).median), 24, true);
       CoachUi.text(body, "직접 확인한 귀·C7 기준의 참고값", 14, false);
     }
-    CoachUi.button(body, "사진으로 점검", android.R.drawable.ic_menu_camera,
+    CoachUi.button(body, "사진 점검", android.R.drawable.ic_menu_camera,
         () -> startActivity(new Intent(this, PostureCaptureActivity.class)));
-    CoachUi.rule(body);
-    CoachUi.button(body, "내 기록", android.R.drawable.ic_menu_recent_history, this::history);
+    CoachUi.button(body, "지난 기록 보기", android.R.drawable.ic_menu_recent_history, this::history);
     if (day > total) CoachUi.button(body, "다음 목표 설정", android.R.drawable.ic_menu_edit, this::setup);
-    CoachUi.button(body, "설정 · 데이터", android.R.drawable.ic_menu_manage, this::settings);
+    CoachUi.navigation(body, 0, this::home, this::history, this::settings);
   }
 
   private void routine() {
     pauseTimer();
     state.screen = "routine";
     if (state.routineRemaining <= 0) state.routineRemaining = store.minutes() * 60;
-    LinearLayout body = CoachUi.page(this, "오늘의 루틴");
+    LinearLayout body = CoachUi.page(this, "오늘의 운동", this::home);
     CoachUi.text(body, "일반 운동 안내 · 편안한 범위에서", 15, false);
     CoachUi.text(body, "통증·어지럼·저림이 생기면 중단하세요. 최근 다쳤거나 치료 중이면 담당 전문가에게 먼저 확인하세요.", 15, false);
-    clock = CoachUi.text(body, "", 40, true);
     movement = CoachUi.text(body, "", 22, true);
     movementDetail = CoachUi.text(body, "", 17, false);
+    LinearLayout media = CoachUi.card(body, true);
+    TextView pending = CoachUi.text(media, "운동 자료 준비 중", 16, true);
+    pending.setGravity(android.view.Gravity.CENTER);
+    pending.setMinHeight(CoachUi.dp(this, 120));
+    clock = CoachUi.timer(body);
     CoachUi.text(body, "표시 시간에는 휴식도 포함됩니다. 같은 자세를 계속 버티지 말고 무리 없이 움직이세요.", 15, false);
     CheckBox ready = new CheckBox(this);
     ready.setText("오늘 편안하게 운동할 수 있는 상태예요");
@@ -134,6 +139,7 @@ public final class PostureCoachActivity extends AppCompatActivity {
     play = CoachUi.button(body, "시작", android.R.drawable.ic_media_play, () -> {
       if (state.routineRunning) pauseTimer(); else startTimer();
     });
+    CoachUi.styleButton(play, true);
     play.setEnabled(false);
     ready.setOnCheckedChangeListener((button, checked) -> {
       if (!checked) pauseTimer();
@@ -159,7 +165,8 @@ public final class PostureCoachActivity extends AppCompatActivity {
     movementDetail.setText(chin
         ? "등과 목을 곧게 유지하고 턱을 가볍게 뒤로 당겼다가 편히 돌아옵니다. 고개를 아래로 숙이지 않습니다."
         : "어깨의 힘을 빼고 편안한 범위에서 고개를 좌우로 천천히 돌립니다. 손으로 머리를 밀거나 당기지 않습니다.");
-    play.setText(state.routineRunning ? "일시정지" : "계속하기");
+    play.setText(state.routineRunning ? "일시정지" :
+        state.routineRemaining == store.minutes() * 60 ? "시작" : "계속하기");
   }
 
   private void startTimer() {
@@ -204,27 +211,27 @@ public final class PostureCoachActivity extends AppCompatActivity {
     for (int i = 0; i < readings.size(); i++) {
       PostureStore.Reading reading = readings.get(i);
       String when = new SimpleDateFormat("MM월 dd일 HH:mm", Locale.KOREA).format(new Date(reading.created));
-      CoachUi.text(body, String.format(Locale.KOREA, "%s   %.1f°", when, reading.median), 20, true);
-      CoachUi.text(body, String.format(Locale.KOREA, "3회 측정  %.1f° · %.1f° · %.1f°\n%s",
+      LinearLayout entry = CoachUi.card(body, false);
+      CoachUi.text(entry, String.format(Locale.KOREA, "%s   %.1f°", when, reading.median), 20, true);
+      CoachUi.text(entry, String.format(Locale.KOREA, "3회 측정  %.1f° · %.1f° · %.1f°\n%s",
           reading.samples[0], reading.samples[1], reading.samples[2],
           reading.protocol.replace("standing-v1 / ", "서서 촬영 · ").replace(" / ", " · ")), 14, false);
       for (int j = i + 1; j < readings.size(); j++) {
         if (reading.protocol.equals(readings.get(j).protocol)) {
-          CoachUi.text(body, String.format(Locale.KOREA, "같은 조건의 이전 기록 대비 %+.1f°",
+          CoachUi.text(entry, String.format(Locale.KOREA, "같은 조건의 이전 기록 대비 %+.1f°",
               reading.median - readings.get(j).median), 16, false);
           break;
         }
       }
-      CoachUi.button(body, "이 측정 삭제", android.R.drawable.ic_menu_delete, () ->
+      CoachUi.button(entry, "이 측정 삭제", android.R.drawable.ic_menu_delete, () ->
           new AlertDialog.Builder(this).setMessage("이 측정값을 삭제할까요?")
               .setPositiveButton("삭제", (dialog, which) -> {
                 try { store.deleteReading(reading.id); history(); }
                 catch (RuntimeException e) { error("삭제하지 못했습니다."); }
               }).setNegativeButton("취소", null).show());
-      CoachUi.rule(body);
     }
     CoachUi.text(body, "각도 차이에는 촬영 자세와 기준점 오차가 포함됩니다. 수치만으로 개선이나 치료 효과를 확정하지 않습니다.", 14, false);
-    CoachUi.button(body, "오늘로 돌아가기", android.R.drawable.ic_menu_revert, this::home);
+    CoachUi.navigation(body, 1, this::home, this::history, this::settings);
   }
 
   private void settings() {
@@ -247,7 +254,7 @@ public final class PostureCoachActivity extends AppCompatActivity {
               try { store.clearAll(); home(); }
               catch (RuntimeException e) { error("기록을 삭제하지 못했습니다."); }
             }).setNegativeButton("취소", null).show());
-    CoachUi.button(body, "돌아가기", android.R.drawable.ic_menu_revert, this::home);
+    CoachUi.navigation(body, 2, this::home, this::history, this::settings);
   }
 
   private void pauseTimer() {
