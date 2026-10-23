@@ -76,7 +76,11 @@ PostureCoachActivity (목표·오늘·운동·기록)
 | 촬영 순서·권한·귀 후보·C7 확인 | `PostureCaptureActivity`, `PostureSession` |
 | 사진 위 점·선·터치 위치 | `PosturePhotoView` |
 | 각도·세 사진 대표값 | `CvaMath` |
+| 자동 촬영 연속 유지·프레임 신선도 조건 | `CaptureReadiness` |
+| 카메라 영상 영역의 구도 가이드 | `CaptureGuideView` |
 | 목표·실천일·측정 기록 | `PostureStore` |
 | 예전 실시간 귀·어깨 후보 | `LivePreviewActivity`, `NeckPostureProcessor`, `NeckPostureGraphic` |
 
 현재 구현·검증 범위와 남은 실기기 확인 사항은 [APP_STATUS.md](../android/vision-quickstart/APP_STATUS.md), 프로젝트 규칙은 [AGENTS.md](../AGENTS.md)를 참고합니다.
+
+2026-10-23 추가: 제품 화면의 대표값은 `CvaMath.mean`으로 계산한다. `PostureStore`는 DB v2에 평균을 저장하고 기존 중앙값과 사진별 값은 보존한다. `PostureCaptureActivity`는 별도 경량 FaceDetector로 구도를 확인하고 `CaptureReadiness`의 연속 유지 조건으로 자동 촬영을 시작한다. 구도 확인은 C7 자동 검출이 아니다. 알림은 기기 소리·햅틱 설정을 따른다.

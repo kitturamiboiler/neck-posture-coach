@@ -17,7 +17,7 @@ final class PostureStore extends SQLiteOpenHelper {
   final SharedPreferences prefs;
 
   PostureStore(Context context) {
-    super(context, "posture_habits.db", null, 1);
+    super(context, "posture_habits.db", null, 2);
     prefs = context.getSharedPreferences("posture_plan", Context.MODE_PRIVATE);
   }
 
@@ -26,11 +26,14 @@ final class PostureStore extends SQLiteOpenHelper {
         + " seconds INTEGER NOT NULL, PRIMARY KEY(plan, day))");
     db.execSQL("CREATE TABLE measurement (_id INTEGER PRIMARY KEY, plan TEXT NOT NULL,"
         + " created INTEGER NOT NULL, protocol TEXT NOT NULL, a REAL NOT NULL,"
-        + " b REAL NOT NULL, c REAL NOT NULL, median REAL NOT NULL)");
+        + " b REAL NOT NULL, c REAL NOT NULL, median REAL NOT NULL, mean REAL NOT NULL)");
   }
 
   @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-    throw new IllegalStateException("Unsupported database upgrade");
+    if (oldVersion == 1 && newVersion == 2) {
+      db.execSQL("ALTER TABLE measurement ADD COLUMN mean REAL");
+      db.execSQL("UPDATE measurement SET mean=(a+b+c)/3.0");
+    } else throw new IllegalStateException("Unsupported database upgrade");
   }
 
   static String today() {
@@ -107,6 +110,7 @@ final class PostureStore extends SQLiteOpenHelper {
     row.put("protocol", protocol);
     row.put("a", values[0]); row.put("b", values[1]); row.put("c", values[2]);
     row.put("median", CvaMath.median(values));
+    row.put("mean", CvaMath.mean(values));
     return getWritableDatabase().insertOrThrow("measurement", null, row);
   }
 
@@ -117,7 +121,7 @@ final class PostureStore extends SQLiteOpenHelper {
   List<Reading> readings(boolean allPlans) {
     List<Reading> result = new ArrayList<>();
     try (Cursor cursor = getReadableDatabase().rawQuery(
-        "SELECT _id,created,protocol,a,b,c,median FROM measurement"
+        "SELECT _id,created,protocol,a,b,c,mean FROM measurement"
             + (allPlans ? "" : " WHERE plan=?") + " ORDER BY _id DESC",
         allPlans ? null : new String[]{plan()})) {
       while (cursor.moveToNext()) result.add(new Reading(cursor));
@@ -143,11 +147,11 @@ final class PostureStore extends SQLiteOpenHelper {
     final long id, created;
     final String protocol;
     final double[] samples;
-    final double median;
+    final double mean;
     Reading(Cursor row) {
       id = row.getLong(0); created = row.getLong(1); protocol = row.getString(2);
       samples = new double[]{row.getDouble(3), row.getDouble(4), row.getDouble(5)};
-      median = row.getDouble(6);
+      mean = row.getDouble(6);
     }
   }
 }

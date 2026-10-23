@@ -106,7 +106,7 @@ public final class PostureCoachActivity extends AppCompatActivity {
         : !endDone ? "다음 점검: " + total + "일째" : "목표 기간의 점검을 마쳤어요";
     CoachUi.text(body, checkpoint, 14, false);
     if (!readings.isEmpty()) {
-      CoachUi.text(body, String.format(Locale.KOREA, "최근 CVA %.1f°", readings.get(0).median), 24, true);
+      CoachUi.text(body, String.format(Locale.KOREA, "최근 평균 CVA %.1f°", readings.get(0).mean), 24, true);
       CoachUi.text(body, "직접 확인한 귀·C7 기준의 참고값", 14, false);
     }
     CoachUi.button(body, "사진 점검", android.R.drawable.ic_menu_camera,
@@ -167,6 +167,7 @@ public final class PostureCoachActivity extends AppCompatActivity {
         : "어깨의 힘을 빼고 편안한 범위에서 고개를 좌우로 천천히 돌립니다. 손으로 머리를 밀거나 당기지 않습니다.");
     play.setText(state.routineRunning ? "일시정지" :
         state.routineRemaining == store.minutes() * 60 ? "시작" : "계속하기");
+    CoachUi.buttonIcon(play, state.routineRunning ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play);
   }
 
   private void startTimer() {
@@ -201,6 +202,7 @@ public final class PostureCoachActivity extends AppCompatActivity {
     state.screen = "history";
     LinearLayout body = CoachUi.page(this, "내 기록");
     CoachUi.text(body, "모든 목표의 실천·측정 기록", 15, false);
+    CoachUi.text(body, "대표 각도는 사진 3장의 평균입니다. 이전 기록도 원래의 사진별 값으로 평균을 계산해 표시합니다.", 14, false);
     CoachUi.text(body, "운동 실천", 20, true);
     List<String> days = store.practiceDays(true);
     CoachUi.text(body, days.isEmpty() ? "아직 실천 기록이 없어요." : android.text.TextUtils.join("   ·   ", days), 16, false);
@@ -212,14 +214,14 @@ public final class PostureCoachActivity extends AppCompatActivity {
       PostureStore.Reading reading = readings.get(i);
       String when = new SimpleDateFormat("MM월 dd일 HH:mm", Locale.KOREA).format(new Date(reading.created));
       LinearLayout entry = CoachUi.card(body, false);
-      CoachUi.text(entry, String.format(Locale.KOREA, "%s   %.1f°", when, reading.median), 20, true);
+      CoachUi.text(entry, String.format(Locale.KOREA, "%s   평균 %.1f°", when, reading.mean), 20, true);
       CoachUi.text(entry, String.format(Locale.KOREA, "3회 측정  %.1f° · %.1f° · %.1f°\n%s",
           reading.samples[0], reading.samples[1], reading.samples[2],
           reading.protocol.replace("standing-v1 / ", "서서 촬영 · ").replace(" / ", " · ")), 14, false);
       for (int j = i + 1; j < readings.size(); j++) {
         if (reading.protocol.equals(readings.get(j).protocol)) {
           CoachUi.text(entry, String.format(Locale.KOREA, "같은 조건의 이전 기록 대비 %+.1f°",
-              reading.median - readings.get(j).median), 16, false);
+              reading.mean - readings.get(j).mean), 16, false);
           break;
         }
       }
@@ -260,7 +262,10 @@ public final class PostureCoachActivity extends AppCompatActivity {
   private void pauseTimer() {
     if (timer != null) { timer.cancel(); timer = null; }
     state.routineRunning = false;
-    if (play != null) play.setText("계속하기");
+    if (play != null) {
+      play.setText("계속하기");
+      CoachUi.buttonIcon(play, android.R.drawable.ic_media_play);
+    }
   }
 
   private void error(String message) { Toast.makeText(this, message, Toast.LENGTH_LONG).show(); }

@@ -21,6 +21,8 @@ public final class PostureSession extends ViewModel {
   long savedId = -1;
   int routineRemaining;
   boolean routineRunning;
+  boolean autoCapture = true;
+  boolean captureFeedback = true;
 
   void clearPhotos() {
     // Bitmap references may still belong to an in-flight ML Kit task; let GC reclaim them.

@@ -15,20 +15,30 @@ final class CvaMath {
   }
 
   static double median(double[] values) {
-    if (values.length != 3) throw new IllegalArgumentException("Three measurements required");
+    validate(values);
     double[] sorted = values.clone();
-    for (double value : sorted) {
-      if (!finite(value) || value <= 0 || value > 90) {
-        throw new IllegalArgumentException("Invalid measurement");
-      }
-    }
     Arrays.sort(sorted);
     return sorted[1];
   }
 
+  static double mean(double[] values) {
+    validate(values);
+    return (values[0] + values[1] + values[2]) / 3.0;
+  }
+
+  private static void validate(double[] values) {
+    if (values == null) throw new IllegalArgumentException("Measurements required");
+    if (values.length != 3) throw new IllegalArgumentException("Three measurements required");
+    for (double value : values) {
+      if (!finite(value) || value <= 0 || value > 90) {
+        throw new IllegalArgumentException("Invalid measurement");
+      }
+    }
+  }
+
   // ponytail: provisional repeatability gate; calibrate with a supervised repeat-photo study.
   static boolean repeatable(double[] values) {
-    median(values);
+    validate(values);
     double min = Math.min(values[0], Math.min(values[1], values[2]));
     double max = Math.max(values[0], Math.max(values[1], values[2]));
     return max - min <= 5.0;
