@@ -13,6 +13,11 @@ import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
+import android.media.AudioManager;
+import android.media.ToneGenerator;
+import android.app.NotificationManager;
+import android.view.HapticFeedbackConstants;
 import android.util.Size;
 import android.view.Gravity;
 import android.view.Surface;
@@ -30,6 +35,8 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageCapture;
+import androidx.camera.core.ImageAnalysis;
+import androidx.camera.core.AspectRatio;
 import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
@@ -57,6 +64,14 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
   private PostureSession state;
   private PostureStore store;
   private FaceDetector detector;
+  private FaceDetector framingDetector;
+  private ImageAnalysis analysis;
+  private CaptureGuideView guide;
+  private final CaptureReadiness readiness = new CaptureReadiness();
+  private CheckBox automatic;
+  private ToneGenerator tones;
+  private long lastAnalysis, lastFramed = -1, lastLevelCue = -5000;
+  private boolean framed, previousLevel, automaticSequence;
   private ProcessCameraProvider provider;
   private ImageCapture capture;
   private PreviewView preview;
@@ -78,6 +93,8 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
     detector = FaceDetection.getClient(new FaceDetectorOptions.Builder()
         .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
         .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL).setMinFaceSize(0.1f).build());
+    framingDetector = FaceDetection.getClient(new FaceDetectorOptions.Builder()
+        .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST).setMinFaceSize(0.08f).build());
     sensors = (SensorManager) getSystemService(SENSOR_SERVICE);
     gravity = sensors.getDefaultSensor(Sensor.TYPE_GRAVITY);
     if (gravity == null) gravity = sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
@@ -115,6 +132,21 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
     protocol.setMinHeight(CoachUi.dp(this, 48));
     body.addView(protocol);
     CoachUi.text(body, "촬영 중에는 미리보기가 가려지고 여러 장이 촬영됩니다. 턱을 일부러 당기거나 목을 앞으로 내밀지 말고 평소처럼 시선을 두세요.", 15, false);
+    CheckBox auto = new CheckBox(this);
+    auto.setText("구도와 수평이 맞으면 자동 촬영");
+    auto.setTextColor(CoachUi.INK);
+    auto.setMinHeight(CoachUi.dp(this, 48));
+    auto.setChecked(state.autoCapture);
+    auto.setOnCheckedChangeListener((button, checked) -> state.autoCapture = checked);
+    body.addView(auto);
+    CheckBox feedback = new CheckBox(this);
+    feedback.setText("촬영 소리·진동 알림");
+    feedback.setTextColor(CoachUi.INK);
+    feedback.setMinHeight(CoachUi.dp(this, 48));
+    feedback.setChecked(state.captureFeedback);
+    feedback.setOnCheckedChangeListener((button, checked) -> state.captureFeedback = checked);
+    body.addView(feedback);
+    CoachUi.text(body, "안내음을 들으려면 미디어 소리를 켜 주세요. 무음·방해금지 설정과 기기 진동 설정을 따릅니다.", 14, false);
     Button next = CoachUi.button(body, "카메라 열기", android.R.drawable.ic_menu_camera, () -> {
       state.side = CoachUi.selected(side) == 0 ? "왼쪽" : "오른쪽";
       state.camera = CoachUi.selected(camera) == 0 ? "후면" : "전면";
@@ -147,11 +179,13 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
     final int token = generation;
     LinearLayout body = CoachUi.page(this, "자연스러운 옆모습", this::onBackPressed);
     FrameLayout frame = new FrameLayout(this);
-    int height = Math.max(220, Math.min(420, getResources().getConfiguration().screenHeightDp / 2));
+    int height = Math.max(180, Math.min(360, getResources().getConfiguration().screenHeightDp * 2 / 5));
     body.addView(frame, new LinearLayout.LayoutParams(-1, CoachUi.dp(this, height)));
     preview = new PreviewView(this);
     preview.setScaleType(PreviewView.ScaleType.FIT_CENTER);
     frame.addView(preview, new FrameLayout.LayoutParams(-1, -1));
+    guide = new CaptureGuideView(this);
+    frame.addView(guide, new FrameLayout.LayoutParams(-1, -1));
     cover = new TextView(this);
     cover.setGravity(Gravity.CENTER);
     cover.setTextColor(android.graphics.Color.WHITE);
@@ -161,7 +195,20 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
     cover.setVisibility(View.GONE);
     frame.addView(cover, new FrameLayout.LayoutParams(-1, -1));
     status = CoachUi.text(body, "카메라 연결 중", 16, false);
-    shutter = CoachUi.button(body, "촬영 시작", android.R.drawable.ic_menu_camera, this::startSequence);
+    status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+    CoachUi.text(body, "위 실선: 옆얼굴 · 아래 점선: 목과 C7 표식\nC7 위치는 촬영 후 직접 확인합니다.", 14, false);
+    automatic = new CheckBox(this);
+    automatic.setText("자동 촬영");
+    automatic.setTextColor(CoachUi.INK);
+    automatic.setMinHeight(CoachUi.dp(this, 48));
+    automatic.setChecked(state.autoCapture);
+    automatic.setOnCheckedChangeListener((button, checked) -> {
+      state.autoCapture = checked;
+      readiness.reset();
+      updateLevel();
+    });
+    body.addView(automatic);
+    shutter = CoachUi.button(body, "수동 촬영 시작", android.R.drawable.ic_menu_camera, () -> startSequence(false));
     CoachUi.styleButton(shutter, true);
     shutter.setEnabled(false);
     CoachUi.button(body, "취소", android.R.drawable.ic_menu_close_clear_cancel, this::preparation);
@@ -174,26 +221,47 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
             state.camera.equals("전면") ? CameraSelector.LENS_FACING_FRONT : CameraSelector.LENS_FACING_BACK).build();
         if (!provider.hasCamera(selector)) throw new IllegalStateException("Camera not available");
         int rotation = getWindowManager().getDefaultDisplay().getRotation();
-        Preview live = new Preview.Builder().setTargetRotation(rotation).build();
+        Preview live = new Preview.Builder().setTargetRotation(rotation)
+            .setTargetAspectRatio(AspectRatio.RATIO_4_3).build();
         live.setSurfaceProvider(preview.getSurfaceProvider());
         capture = new ImageCapture.Builder().setTargetRotation(rotation)
             .setTargetResolution(new Size(1280, 960))
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY).build();
-        provider.bindToLifecycle(this, selector, live, capture);
+        analysis = new ImageAnalysis.Builder().setTargetRotation(rotation)
+            .setTargetResolution(new Size(640, 480))
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build();
+        analysis.setAnalyzer(ContextCompat.getMainExecutor(this), image -> analyzeFrame(image, token));
+        try {
+          provider.bindToLifecycle(this, selector, live, capture, analysis);
+        } catch (IllegalArgumentException | IllegalStateException unsupported) {
+          analysis.clearAnalyzer();
+          analysis = null;
+          provider.unbindAll();
+          provider.bindToLifecycle(this, selector, live, capture);
+          automatic.setChecked(false);
+          automatic.setEnabled(false);
+          error("이 카메라에서는 자동 구도 확인을 사용할 수 없어 수동 촬영으로 전환했습니다.");
+        }
         updateLevel();
+        handler.postDelayed(() -> watchFraming(token), 300);
       } catch (Exception e) {
         status.setText("카메라를 열지 못했습니다. 권한과 선택한 카메라를 확인해 주세요.");
       }
     }, ContextCompat.getMainExecutor(this));
   }
 
-  private void startSequence() {
+  private void startSequence(boolean auto) {
     if (capture == null || shooting || !level) return;
+    if (auto && (gravity == null || !freshFrame())) return;
+    automaticSequence = auto;
     shooting = true;
+    readiness.reset();
+    automatic.setEnabled(false);
     shutter.setEnabled(false);
     cover.setVisibility(View.VISIBLE);
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     status.setText("잠시 편안하게 기다려 주세요");
+    signal(ToneGenerator.TONE_PROP_ACK);
     final int token = generation;
     handler.postDelayed(() -> take(token), 5000 + random.nextInt(2000));
   }
@@ -201,6 +269,9 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
   private void take(int token) {
     if (!active || token != generation || capture == null) return;
     if (!level) { captureFailed("기기가 기울었습니다. 수평을 맞추고 다시 촬영해 주세요."); return; }
+    if (automaticSequence && !freshFrame()) {
+      captureFailed("구도를 벗어났습니다. 얼굴과 표식이 보이도록 다시 준비해 주세요."); return;
+    }
     capture.takePicture(executor, new ImageCapture.OnImageCapturedCallback() {
       @Override public void onCaptureSuccess(@NonNull ImageProxy image) {
         Bitmap photo = null;
@@ -224,7 +295,13 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
           if (!active || token != generation) return;
           if (ready == null) { captureFailed("사진 처리에 실패했습니다. 다시 촬영해 주세요."); return; }
           if (!level) { captureFailed("촬영 중 기기가 기울었습니다. 다시 촬영해 주세요."); return; }
+          if (automaticSequence && !freshFrame()) {
+            captureFailed("촬영 중 구도가 달라졌습니다. 다시 준비해 주세요."); return;
+          }
           state.photos.add(ready);
+          signal(state.photos.size() == 3 ? ToneGenerator.TONE_PROP_PROMPT : ToneGenerator.TONE_PROP_BEEP2);
+          status.setText("사진 " + state.photos.size() + " / 3 촬영 완료");
+          cover.setText("사진 " + state.photos.size() + " / 3\n평소처럼 편안하게 서 계세요");
           if (state.photos.size() < 3) {
             handler.postDelayed(() -> take(token), 1500 + random.nextInt(2000));
           } else {
@@ -242,7 +319,79 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
     });
   }
 
-  private void captureFailed(String message) { preparation(); error(message); }
+  private void captureFailed(String message) {
+    preparation();
+    signal(ToneGenerator.TONE_PROP_NACK);
+    error(message);
+  }
+
+  private boolean freshFrame() {
+    return framed && lastFramed >= 0 && SystemClock.elapsedRealtime() - lastFramed <= CaptureReadiness.FRESH_MS;
+  }
+
+  @androidx.annotation.OptIn(markerClass = androidx.camera.core.ExperimentalGetImage.class)
+  private void analyzeFrame(ImageProxy image, int token) {
+    long now = SystemClock.elapsedRealtime();
+    if (!active || token != generation || now - lastAnalysis < 250 || image.getImage() == null) {
+      image.close(); return;
+    }
+    lastAnalysis = now;
+    int rotation = image.getImageInfo().getRotationDegrees();
+    int width = rotation % 180 == 0 ? image.getWidth() : image.getHeight();
+    int height = rotation % 180 == 0 ? image.getHeight() : image.getWidth();
+    try {
+      framingDetector.process(InputImage.fromMediaImage(image.getImage(), rotation))
+          .addOnSuccessListener(ContextCompat.getMainExecutor(this), faces -> {
+            if (!active || token != generation) return;
+            framed = false;
+            if (faces.size() == 1 && NeckPostureProcessor.sideForYaw(faces.get(0).getHeadEulerAngleY()) != 0) {
+              android.graphics.Rect box = faces.get(0).getBoundingBox();
+              framed = CaptureReadiness.framed(box.left / (float) width, box.top / (float) height,
+                  box.right / (float) width, box.bottom / (float) height);
+            }
+            framed &= SystemClock.elapsedRealtime() - now <= CaptureReadiness.FRESH_MS;
+            if (framed) lastFramed = now;
+            guide.update(width, height, framed && level);
+            if (!shooting) {
+              boolean ready = readiness.update(SystemClock.elapsedRealtime(), level, framed);
+              updateLevel();
+              if (ready && state.autoCapture && gravity != null) startSequence(true);
+            }
+          }).addOnFailureListener(ContextCompat.getMainExecutor(this), error -> {
+            if (token == generation) { framed = false; readiness.reset(); updateLevel(); }
+          }).addOnCompleteListener(task -> image.close());
+    } catch (RuntimeException e) {
+      image.close();
+      framed = false;
+      readiness.reset();
+    }
+  }
+
+  private void watchFraming(int token) {
+    if (!active || token != generation || capture == null) return;
+    if (shooting && automaticSequence && (!level || !freshFrame())) {
+      captureFailed("구도 또는 수평이 유지되지 않았습니다. 다시 준비해 주세요."); return;
+    }
+    if (!freshFrame()) readiness.reset();
+    if (!shooting) updateLevel();
+    handler.postDelayed(() -> watchFraming(token), 300);
+  }
+
+  private void signal(int tone) {
+    if (!state.captureFeedback) return;
+    AudioManager audio = (AudioManager) getSystemService(AUDIO_SERVICE);
+    NotificationManager notifications = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+    if (android.os.Build.VERSION.SDK_INT >= 23
+        && notifications.getCurrentInterruptionFilter() != NotificationManager.INTERRUPTION_FILTER_ALL) return;
+    if (audio.getRingerMode() == AudioManager.RINGER_MODE_SILENT) return;
+    getWindow().getDecorView().performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
+    if (audio.getRingerMode() != AudioManager.RINGER_MODE_NORMAL
+        || audio.getStreamVolume(AudioManager.STREAM_MUSIC) == 0) return;
+    try {
+      if (tones == null) tones = new ToneGenerator(AudioManager.STREAM_MUSIC, 70);
+      tones.startTone(tone, 180);
+    } catch (RuntimeException ignored) { /* Sound may be unavailable; visual feedback remains. */ }
+  }
 
   private void annotate() {
     state.screen = "annotate";
@@ -357,16 +506,16 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
     ++generation;
     state.screen = "result";
     LinearLayout body = CoachUi.page(this, "사진 점검 결과", this::onBackPressed);
-    double median = CvaMath.median(state.angles);
+    double mean = CvaMath.mean(state.angles);
     boolean consistent = CvaMath.repeatable(state.angles);
     LinearLayout summary = CoachUi.card(body, true);
     CoachUi.text(summary, "대표 각도", 14, false).setGravity(Gravity.CENTER);
-    TextView angle = CoachUi.text(summary, String.format(Locale.KOREA, "%.1f°", median), 64, true);
+    TextView angle = CoachUi.text(summary, String.format(Locale.KOREA, "%.1f°", mean), 64, true);
     angle.setTextColor(CoachUi.GREEN);
     angle.setGravity(Gravity.CENTER);
     androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(angle, 32, 64, 1,
         android.util.TypedValue.COMPLEX_UNIT_SP);
-    CoachUi.text(summary, "세 값의 중앙값", 14, false).setGravity(Gravity.CENTER);
+    CoachUi.text(summary, "세 값의 평균값", 14, false).setGravity(Gravity.CENTER);
     CoachUi.text(body, "사진별 측정값", 20, true);
     LinearLayout samples = new LinearLayout(this);
     boolean stacked = getResources().getConfiguration().fontScale > 1.3f;
@@ -412,9 +561,15 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
   private void stopCamera() {
     generation++;
     handler.removeCallbacksAndMessages(null);
+    if (analysis != null) { analysis.clearAnalyzer(); analysis = null; }
     if (provider != null) provider.unbindAll();
     capture = null;
     shooting = false;
+    framed = false;
+    lastFramed = -1;
+    lastAnalysis = 0;
+    previousLevel = false;
+    readiness.reset();
     getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
   }
 
@@ -427,13 +582,25 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
     double tilt = Math.toDegrees(Math.atan2(Math.abs(z), Math.hypot(x, y)));
     // Camera alignment tolerances, not clinical posture thresholds.
     level = roll <= 5 && tilt <= 15 && Math.hypot(x, y) > 5;
+    if (!level) readiness.reset();
     updateLevel();
   }
 
   private void updateLevel() {
     if (!state.screen.equals("camera") || status == null || shutter == null || capture == null) return;
     if (shooting) return;
-    status.setText(gravity == null ? "기기 수평을 직접 확인해 주세요" : level ? "기기 수평 확인됨" : "기기를 수평으로 세워 주세요");
+    long now = SystemClock.elapsedRealtime();
+    if (level && !previousLevel && now - lastLevelCue >= 3000) {
+      signal(ToneGenerator.TONE_PROP_BEEP);
+      lastLevelCue = now;
+    }
+    previousLevel = level;
+    String message = gravity == null ? "수평 센서 없음 · 직접 확인 후 수동 촬영"
+        : !level ? "기기를 수평으로 세워 주세요"
+        : !state.autoCapture ? "수평 확인됨 · 수동 촬영을 시작하세요"
+        : freshFrame() ? "구도·수평 확인됨 · 잠시 유지하면 자동 촬영"
+        : "수평 확인됨 · 위 틀에 옆얼굴을 맞춰 주세요";
+    if (!message.contentEquals(status.getText())) status.setText(message);
     shutter.setEnabled(level);
   }
 
@@ -442,19 +609,27 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
   @Override protected void onPause() {
     active = false;
     stopCamera();
+    if (tones != null) { tones.release(); tones = null; }
     sensors.unregisterListener(this);
     level = gravity == null;
     super.onPause();
   }
   @Override protected void onDestroy() {
     detector.close();
+    framingDetector.close();
     executor.shutdown();
     store.close();
     super.onDestroy();
   }
   @Override public void onBackPressed() {
+    boolean wasCamera = state.screen.equals("camera");
+    if (wasCamera) { stopCamera(); state.clearPhotos(); state.screen = "prepare"; }
     new AlertDialog.Builder(this).setMessage("이번 사진 점검을 종료할까요?")
         .setPositiveButton("종료", (dialog, which) -> { state.clearPhotos(); finish(); })
-        .setNegativeButton("계속하기", null).show();
+        .setNegativeButton("계속하기", (dialog, which) -> {
+          if (wasCamera) preparation();
+        }).setOnCancelListener(dialog -> {
+          if (wasCamera) preparation();
+        }).show();
   }
 }

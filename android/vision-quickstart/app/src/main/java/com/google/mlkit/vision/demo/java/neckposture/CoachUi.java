@@ -117,6 +117,8 @@ final class CoachUi {
     button.setGravity(Gravity.CENTER);
     button.setMinHeight(dp(parent.getContext(), 48));
     button.setMinimumWidth(0);
+    button.setStateListAnimator(null);
+    button.setElevation(0);
     button.setPadding(dp(parent.getContext(), 16), dp(parent.getContext(), 12), dp(parent.getContext(), 16), dp(parent.getContext(), 12));
     if (icon != 0) {
       android.graphics.drawable.Drawable drawable = androidx.appcompat.content.res.AppCompatResources.getDrawable(parent.getContext(), icon).mutate();
@@ -145,6 +147,16 @@ final class CoachUi {
     for (android.graphics.drawable.Drawable drawable : button.getCompoundDrawablesRelative()) {
       if (drawable != null) drawable.setTintList(text);
     }
+  }
+
+  static void buttonIcon(Button button, int resource) {
+    android.graphics.drawable.Drawable icon = androidx.appcompat.content.res.AppCompatResources
+        .getDrawable(button.getContext(), resource).mutate();
+    int size = dp(button.getContext(), 24);
+    icon.setBounds(0, 0, size, size);
+    icon.setTintList(button.getTextColors());
+    button.setCompoundDrawablesRelative(icon, null, null, null);
+    button.requestLayout();
   }
 
   static TextView timer(LinearLayout parent) {
@@ -193,7 +205,13 @@ final class CoachUi {
   }
 
   static void navigation(LinearLayout body, int selected, Runnable today, Runnable history, Runnable settings) {
-    LinearLayout nav = new LinearLayout(body.getContext());
+    LinearLayout nav = new LinearLayout(body.getContext()) {
+      @Override protected void onMeasure(int width, int height) {
+        super.onMeasure(View.MeasureSpec.makeMeasureSpec(
+            Math.min(View.MeasureSpec.getSize(width), dp(getContext(), 600)),
+            View.MeasureSpec.EXACTLY), height);
+      }
+    };
     nav.setGravity(Gravity.CENTER);
     nav.setBackgroundColor(Color.WHITE);
     String[] labels = {"오늘", "기록", "설정"};
@@ -216,7 +234,10 @@ final class CoachUi {
       item.setOnClickListener(v -> actions[index].run());
       nav.addView(item, new LinearLayout.LayoutParams(0, -2, 1));
     }
-    ((LinearLayout) body.getTag()).addView(nav, new LinearLayout.LayoutParams(-1, -2));
+    FrameLayout bar = new FrameLayout(body.getContext());
+    bar.setBackgroundColor(Color.WHITE);
+    bar.addView(nav, new FrameLayout.LayoutParams(-1, -2, Gravity.CENTER));
+    ((LinearLayout) body.getTag()).addView(bar, new LinearLayout.LayoutParams(-1, -2));
   }
 
   static RadioGroup options(LinearLayout parent, String[] labels, int selected) {

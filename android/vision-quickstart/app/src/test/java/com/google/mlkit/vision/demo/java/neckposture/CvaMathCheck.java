@@ -15,6 +15,8 @@ public final class CvaMathCheck {
     check(Double.isNaN(CvaMath.angle(0, 0, 0, 0.2)), "too close");
     double[] values = {52, 49, 50};
     check(CvaMath.median(values) == 50 && values[0] == 52, "median without mutation");
+    check(Math.abs(CvaMath.mean(values) - 50.3333333333) < .00001 && values[0] == 52, "mean without mutation");
+    check(Math.abs(CvaMath.mean(new double[]{52.5, 55.4, 55.7}) - 54.5333333333) < .00001, "decimal mean");
     check(CvaMath.repeatable(values), "consistent samples");
     check(CvaMath.repeatable(new double[]{50, 55, 51}), "five degree boundary");
     check(!CvaMath.repeatable(new double[]{45, 55, 51}), "variable samples blocked");
@@ -23,7 +25,12 @@ public final class CvaMathCheck {
       try { CvaMath.median(invalid); } catch (IllegalArgumentException e) { rejected = true; }
       check(rejected, "invalid sample rejected");
     }
-    System.out.println("CVA checks passed (18 checks)");
+    for (double[] invalid : new double[][]{null, {1, 2}, {0, 50, 50}, {91, 50, 50}, {Double.NaN, 50, 50}, {Double.POSITIVE_INFINITY, 50, 50}}) {
+      boolean rejected = false;
+      try { CvaMath.mean(invalid); } catch (IllegalArgumentException e) { rejected = true; }
+      check(rejected, "invalid mean rejected");
+    }
+    System.out.println("CVA checks passed (26 checks)");
   }
 
   private static void check(boolean result, String description) {
