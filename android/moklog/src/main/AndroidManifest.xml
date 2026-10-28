@@ -1,0 +1,23 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-feature android:name="android.hardware.camera.any" android:required="false"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <application android:allowBackup="false" android:label="@string/posture_app_name"
+        android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher"
+        android:theme="@style/PostureTheme" android:supportsRtl="true"
+        android:usesCleartextTraffic="false">
+        <meta-data android:name="moklog.operator" android:value="@string/moklog_operator"/>
+        <meta-data android:name="moklog.email" android:value="@string/moklog_email"/>
+        <meta-data android:name="moklog.privacy_url" android:value="@string/moklog_privacy_url"/>
+        <activity android:name="com.google.mlkit.vision.demo.java.neckposture.PostureCoachActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <activity android:name="com.google.mlkit.vision.demo.java.neckposture.PostureCaptureActivity"
+            android:exported="false"/>
+        <activity android:name="com.google.mlkit.vision.demo.java.neckposture.PrivacyActivity"
+            android:exported="false"/>
+    </application>
+</manifest>

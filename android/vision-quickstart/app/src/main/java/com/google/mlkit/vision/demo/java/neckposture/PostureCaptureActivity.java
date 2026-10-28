@@ -86,6 +86,9 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
 
   @Override protected void onCreate(Bundle bundle) {
     super.onCreate(bundle);
+    getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
+      @Override public void handleOnBackPressed() { confirmExit(); }
+    });
     getWindow().setStatusBarColor(CoachUi.GREEN);
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
     state = new ViewModelProvider(this).get(PostureSession.class);
@@ -177,7 +180,7 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
     state.clearPhotos();
     state.screen = "camera";
     final int token = generation;
-    LinearLayout body = CoachUi.page(this, "자연스러운 옆모습", this::onBackPressed);
+    LinearLayout body = CoachUi.page(this, "자연스러운 옆모습", this::confirmExit);
     FrameLayout frame = new FrameLayout(this);
     int height = Math.max(180, Math.min(360, getResources().getConfiguration().screenHeightDp * 2 / 5));
     body.addView(frame, new LinearLayout.LayoutParams(-1, CoachUi.dp(this, height)));
@@ -344,7 +347,7 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
           .addOnSuccessListener(ContextCompat.getMainExecutor(this), faces -> {
             if (!active || token != generation) return;
             framed = false;
-            if (faces.size() == 1 && NeckPostureProcessor.sideForYaw(faces.get(0).getHeadEulerAngleY()) != 0) {
+            if (faces.size() == 1 && FaceLandmarkMapping.sideForYaw(faces.get(0).getHeadEulerAngleY()) != 0) {
               android.graphics.Rect box = faces.get(0).getBoundingBox();
               framed = CaptureReadiness.framed(box.left / (float) width, box.top / (float) height,
                   box.right / (float) width, box.bottom / (float) height);
@@ -398,7 +401,7 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
     final int token = ++generation;
     final int index = state.index;
     final Bitmap bitmap = state.photos.get(index);
-    LinearLayout body = CoachUi.page(this, "기준점 확인  " + (index + 1) + " / 3", this::onBackPressed);
+    LinearLayout body = CoachUi.page(this, "기준점 확인  " + (index + 1) + " / 3", this::confirmExit);
     PosturePhotoView photo = new PosturePhotoView(this);
     photo.photo(bitmap, state.ears[index], state.bases[index]);
     int height = Math.max(260, Math.min(520, getResources().getConfiguration().screenHeightDp / 2));
@@ -473,7 +476,7 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
         return;
       }
       Face face = faces.get(0);
-      int side = NeckPostureProcessor.sideForYaw(face.getHeadEulerAngleY());
+      int side = FaceLandmarkMapping.sideForYaw(face.getHeadEulerAngleY());
       if (side == 0) {
         state.quality[index] = -1;
         state.qualityMessage[index] = "정면에 가까운 얼굴입니다. 옆모습으로 다시 촬영해 주세요.";
@@ -482,7 +485,7 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
         next.setEnabled(false);
         return;
       }
-      FaceLandmark candidate = face.getLandmark(NeckPostureProcessor.faceEarTypeForPoseSide(side));
+      FaceLandmark candidate = face.getLandmark(FaceLandmarkMapping.earForSide(side));
       if (photo.ear == null && candidate != null
           && NeckPostureAngle.isInsideImage(candidate.getPosition(), bitmap.getWidth(), bitmap.getHeight())) {
         photo.ear = new PointF(candidate.getPosition().x, candidate.getPosition().y);
@@ -505,7 +508,7 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
   private void result() {
     ++generation;
     state.screen = "result";
-    LinearLayout body = CoachUi.page(this, "사진 점검 결과", this::onBackPressed);
+    LinearLayout body = CoachUi.page(this, "사진 점검 결과", this::confirmExit);
     double mean = CvaMath.mean(state.angles);
     boolean consistent = CvaMath.repeatable(state.angles);
     LinearLayout summary = CoachUi.card(body, true);
@@ -516,6 +519,13 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
     androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(angle, 32, 64, 1,
         android.util.TypedValue.COMPLEX_UNIT_SP);
     CoachUi.text(summary, "세 값의 평균값", 14, false).setGravity(Gravity.CENTER);
+    CoachUi.text(body, AngleInterpretation.describe(state.angles), 16, true);
+    CoachUi.text(body, AngleInterpretation.LIMIT, 14, false);
+    CoachUi.button(body, "각도 참고 기준 근거", android.R.drawable.ic_menu_info_details, () -> {
+      try { startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,
+          android.net.Uri.parse(AngleInterpretation.SOURCE))); }
+      catch (android.content.ActivityNotFoundException e) { error("브라우저를 찾지 못했습니다."); }
+    });
     CoachUi.text(body, "사진별 측정값", 20, true);
     LinearLayout samples = new LinearLayout(this);
     boolean stacked = getResources().getConfiguration().fontScale > 1.3f;
@@ -621,7 +631,7 @@ public final class PostureCaptureActivity extends AppCompatActivity implements S
     store.close();
     super.onDestroy();
   }
-  @Override public void onBackPressed() {
+  private void confirmExit() {
     boolean wasCamera = state.screen.equals("camera");
     if (wasCamera) { stopCamera(); state.clearPhotos(); state.screen = "prepare"; }
     new AlertDialog.Builder(this).setMessage("이번 사진 점검을 종료할까요?")

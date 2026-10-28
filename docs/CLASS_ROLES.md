@@ -21,7 +21,7 @@ PostureCoachActivity (목표·오늘·운동·기록)
 
 ## 제품용 클래스
 
-아래 10개는 모두 `android/vision-quickstart/app/src/main/java/com/google/mlkit/vision/demo/java/neckposture/`에 있습니다.
+제품 클래스의 단일 원본은 `android/vision-quickstart/app/src/main/java/com/google/mlkit/vision/demo/java/neckposture/`입니다. 출시 모듈은 필요한 클래스만 공유합니다.
 
 | 클래스 | 하는 일 | 알아둘 경계 |
 | --- | --- | --- |
@@ -39,7 +39,7 @@ PostureCoachActivity (목표·오늘·운동·기록)
 
 | 클래스 | 하는 일 | 제품과의 관계 |
 | --- | --- | --- |
-| [`NeckPostureProcessor`](../android/vision-quickstart/app/src/main/java/com/google/mlkit/vision/demo/java/neckposture/NeckPostureProcessor.java) | 한 실시간 프레임에서 Face Detection의 귀 후보와 Pose Detection의 어깨 후보를 결합·검사합니다. `DetectionResult`는 검출 결과, `Measurement`는 선택된 점·각도를 담습니다. | 사진 흐름은 이 클래스의 좌우 선택 보조 함수만 재사용합니다. 실시간 귀-어깨각을 사진 CVA로 저장하지 않습니다. |
+| [`NeckPostureProcessor`](../android/vision-quickstart/app/src/main/java/com/google/mlkit/vision/demo/java/neckposture/NeckPostureProcessor.java) | 한 실시간 프레임에서 Face Detection의 귀 후보와 Pose Detection의 어깨 후보를 결합·검사합니다. `DetectionResult`는 검출 결과, `Measurement`는 선택된 점·각도를 담습니다. | 출시 앱에서 제외했습니다. 사진 흐름은 별도 FaceLandmarkMapping을 사용하며 실시간 귀-어깨각을 사진 CVA로 저장하지 않습니다. |
 | [`NeckPostureGraphic`](../android/vision-quickstart/app/src/main/java/com/google/mlkit/vision/demo/java/neckposture/NeckPostureGraphic.java) | 실시간 영상 위에 후보 점, 귀-어깨 연결선, 기준선, 각도와 상태 문구를 그립니다. | 사진 점검의 선·점은 `PosturePhotoView`가 따로 그립니다. |
 | [`NeckPostureAngle`](../android/vision-quickstart/app/src/main/java/com/google/mlkit/vision/demo/java/neckposture/NeckPostureAngle.java) | 실시간 점의 이미지 내부 여부와 귀-어깨각 계산·50도 참고선 처리를 돕습니다. | 사진 흐름은 이미지 경계 확인 함수를 재사용합니다. 50도 실험 참고값을 사진 결과의 진단 경계로 쓰지 않습니다. |
 
@@ -49,7 +49,7 @@ PostureCoachActivity (목표·오늘·운동·기록)
 
 | 클래스 | 현재 역할 |
 | --- | --- |
-| [`EntryChoiceActivity`](../android/vision-quickstart/app/src/main/java/com/google/mlkit/vision/demo/EntryChoiceActivity.kt) | 기존 Java/Kotlin 샘플 선택 화면. 앱의 기본 시작 화면이 아니고 설정에서 실험 화면으로 들어갈 때 사용합니다. |
+| [`EntryChoiceActivity`](../android/vision-quickstart/app/src/main/java/com/google/mlkit/vision/demo/EntryChoiceActivity.kt) | 기존 개발 모듈의 Java/Kotlin 샘플 선택 화면. 목log 출시 앱의 시작·설정 흐름에서는 제외했습니다. |
 | [`ChooserActivity`](../android/vision-quickstart/app/src/main/java/com/google/mlkit/vision/demo/java/ChooserActivity.java) | Java 샘플에서 실행할 검출기와 카메라 예제를 고르는 화면입니다. |
 | [`LivePreviewActivity`](../android/vision-quickstart/app/src/main/java/com/google/mlkit/vision/demo/java/LivePreviewActivity.java) | 실시간 샘플 카메라 화면. 'Neck Posture Measurement' 선택 시 `NeckPostureProcessor`를 사용합니다. |
 | [`CameraSource`](../android/vision-quickstart/app/src/main/java/com/google/mlkit/vision/demo/CameraSource.java) · [`CameraSourcePreview`](../android/vision-quickstart/app/src/main/java/com/google/mlkit/vision/demo/CameraSourcePreview.java) | 기존 실시간 프리뷰의 카메라 프레임 공급·화면 배치입니다. 제품의 3장 촬영은 CameraX를 사용합니다. |
@@ -77,10 +77,18 @@ PostureCoachActivity (목표·오늘·운동·기록)
 | 사진 위 점·선·터치 위치 | `PosturePhotoView` |
 | 각도·세 사진 대표값 | `CvaMath` |
 | 자동 촬영 연속 유지·프레임 신선도 조건 | `CaptureReadiness` |
+| 제품 얼굴 방향·귀 후보 대응 (실험 SDK와 분리) | `FaceLandmarkMapping` |
+| 일반 운동의 이름·단계·안전 문구 | `ExerciseLibrary` |
+| 자체 운동 그림과 순서 재생 | `ExerciseArtworkView` |
+| 평균·측정 범위에 따른 비진단 참고 안내 | `AngleInterpretation` |
+| 오프라인 개인정보·이용·출처·건강 한계 안내 | `PrivacyActivity` |
 | 카메라 영상 영역의 구도 가이드 | `CaptureGuideView` |
-| 목표·실천일·측정 기록 | `PostureStore` |
+| 목표·실천 약속·실천 시간/메모·측정 기록 | `PostureStore` (DB v3, 내부 Practice/Reading) |
+| 주간 날짜·완료일 계산 | `HabitProgress` |
 | 예전 실시간 귀·어깨 후보 | `LivePreviewActivity`, `NeckPostureProcessor`, `NeckPostureGraphic` |
 
 현재 구현·검증 범위와 남은 실기기 확인 사항은 [APP_STATUS.md](../android/vision-quickstart/APP_STATUS.md), 프로젝트 규칙은 [AGENTS.md](../AGENTS.md)를 참고합니다.
+
+2026-10-28: 목log 출시 모듈은 제품 Java 패키지를 공유한다. PostureCoachActivity의 운동 일지와 사진 기록 구성을 분리하고, CoachUi에 공통 입력·주간 달력을 추가했다. HabitProgress는 순수 날짜/집계 계산이며 PostureStore DB v3은 메모만 추가하고 기존 각도·실천 기록을 보존한다. 자세한 화면별 변경은 [습관·일지 보완](HABIT_REFINEMENT_2026-10-28.md)을 참고한다.
 
 2026-10-23 추가: 제품 화면의 대표값은 `CvaMath.mean`으로 계산한다. `PostureStore`는 DB v2에 평균을 저장하고 기존 중앙값과 사진별 값은 보존한다. `PostureCaptureActivity`는 별도 경량 FaceDetector로 구도를 확인하고 `CaptureReadiness`의 연속 유지 조건으로 자동 촬영을 시작한다. 구도 확인은 C7 자동 검출이 아니다. 알림은 기기 소리·햅틱 설정을 따른다.

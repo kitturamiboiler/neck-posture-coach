@@ -38,10 +38,12 @@ public class PostureFlowTest {
           store.getWritableDatabase().getPath());
       store.clearAll();
       store.createPlan(4, 3);
-      store.finishPractice(180);
+      store.finishPractice(180, "편안하게 마쳤어요");
       store.finishPractice(180);
       assertEquals(1, store.practiceDays().size());
       assertTrue(store.practicedToday());
+      assertEquals("편안하게 마쳤어요", store.practices(false).get(0).note);
+      store.setHabitCue("점심 식사 후");
       store.saveMeasurement(new double[]{50, 51, 54}, "standing-v1 / left / back");
       try {
         store.saveMeasurement(new double[]{30, 50, 60}, "standing-v1 / left / back");
@@ -49,6 +51,15 @@ public class PostureFlowTest {
       } catch (IllegalArgumentException expected) { }
     }
     try (PostureStore reopened = new PostureStore(context)) {
+      assertEquals("점심 식사 후", reopened.habitCue());
+      assertEquals("편안하게 마쳤어요", reopened.practices(false).get(0).note);
+      reopened.updatePracticeNote(reopened.practices(false).get(0), "휴식하며 마쳤어요");
+      assertEquals("휴식하며 마쳤어요", reopened.practices(false).get(0).note);
+      assertEquals(180, reopened.practices(false).get(0).seconds);
+      try {
+        reopened.updatePracticeNote(reopened.practices(false).get(0), new String(new char[281]));
+        fail("A long note must be rejected");
+      } catch (IllegalArgumentException expected) { }
       assertEquals(155.0 / 3, reopened.readings().get(0).mean, 0.0001);
       reopened.createPlan(2, 5);
       assertEquals(0, reopened.readings().size());
@@ -123,6 +134,7 @@ public class PostureFlowTest {
       assertArrayEquals(new double[]{52,49,50}, reading.samples, .00001);
       assertEquals(151.0 / 3, reading.mean, .00001);
       assertEquals(1, upgraded.practiceDays().size());
+      assertEquals("", upgraded.practices(false).get(0).note);
       assertEquals("old-plan", upgraded.plan());
       try (android.database.Cursor cursor = upgraded.getReadableDatabase().rawQuery("SELECT median FROM measurement WHERE _id=7", null)) {
         assertTrue(cursor.moveToFirst());
@@ -133,8 +145,40 @@ public class PostureFlowTest {
     try (PostureStore reopened = new PostureStore(context)) {
       assertEquals(2, reopened.readings().size());
       assertEquals(163.6 / 3, reopened.readings().get(0).mean, .00001);
-      assertEquals(2, reopened.getReadableDatabase().getVersion());
+      assertEquals(3, reopened.getReadableDatabase().getVersion());
     }
     base.deleteDatabase("posture_migration_test.db");
+  }
+
+  @Test public void versionTwoUpgradeAddsNotesWithoutChangingMeansOrPractice() {
+    Context base = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    String database = "posture_notes_migration_test.db";
+    assertNotEquals(base.getDatabasePath("posture_habits.db"), base.getDatabasePath(database));
+    base.deleteDatabase(database);
+    Context context = new ContextWrapper(base) {
+      @Override public java.io.File getDatabasePath(String name) { return super.getDatabasePath(database); }
+      @Override public SharedPreferences getSharedPreferences(String name, int mode) {
+        return super.getSharedPreferences("posture_notes_migration_test_plan", mode);
+      }
+    };
+    try (SQLiteDatabase old = SQLiteDatabase.openOrCreateDatabase(context.getDatabasePath("posture_habits.db"), null)) {
+      old.execSQL("CREATE TABLE practice (plan TEXT NOT NULL,day TEXT NOT NULL,seconds INTEGER NOT NULL,PRIMARY KEY(plan,day))");
+      old.execSQL("CREATE TABLE measurement (_id INTEGER PRIMARY KEY,plan TEXT NOT NULL,created INTEGER NOT NULL,protocol TEXT NOT NULL,a REAL NOT NULL,b REAL NOT NULL,c REAL NOT NULL,median REAL NOT NULL,mean REAL NOT NULL)");
+      old.execSQL("INSERT INTO practice VALUES ('old-plan','2026-10-01',180)");
+      old.execSQL("INSERT INTO measurement VALUES (7,'old-plan',1234,'standing-v1 / left / back',52,49,50,50,50.33333333)");
+      old.setVersion(2);
+    }
+    try (PostureStore upgraded = new PostureStore(context)) {
+      assertEquals(context.getDatabasePath("posture_habits.db").getAbsolutePath(), upgraded.getWritableDatabase().getPath());
+      assertEquals(3, upgraded.getReadableDatabase().getVersion());
+      PostureStore.Practice practice = upgraded.practices(true).get(0);
+      assertEquals(180, practice.seconds); assertEquals("", practice.note);
+      assertEquals(50.33333333, upgraded.readings(true).get(0).mean, .00000001);
+      upgraded.updatePracticeNote(practice, "이전 기록에 메모");
+    }
+    try (PostureStore reopened = new PostureStore(context)) {
+      assertEquals("이전 기록에 메모", reopened.practices(true).get(0).note);
+    }
+    base.deleteDatabase(database);
   }
 }

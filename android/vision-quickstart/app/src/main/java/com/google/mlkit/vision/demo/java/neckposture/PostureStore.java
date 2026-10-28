@@ -17,23 +17,27 @@ final class PostureStore extends SQLiteOpenHelper {
   final SharedPreferences prefs;
 
   PostureStore(Context context) {
-    super(context, "posture_habits.db", null, 2);
+    super(context, "posture_habits.db", null, 3);
     prefs = context.getSharedPreferences("posture_plan", Context.MODE_PRIVATE);
   }
 
   @Override public void onCreate(SQLiteDatabase db) {
     db.execSQL("CREATE TABLE practice (plan TEXT NOT NULL, day TEXT NOT NULL,"
-        + " seconds INTEGER NOT NULL, PRIMARY KEY(plan, day))");
+        + " seconds INTEGER NOT NULL, note TEXT NOT NULL DEFAULT '', PRIMARY KEY(plan, day))");
     db.execSQL("CREATE TABLE measurement (_id INTEGER PRIMARY KEY, plan TEXT NOT NULL,"
         + " created INTEGER NOT NULL, protocol TEXT NOT NULL, a REAL NOT NULL,"
         + " b REAL NOT NULL, c REAL NOT NULL, median REAL NOT NULL, mean REAL NOT NULL)");
   }
 
   @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-    if (oldVersion == 1 && newVersion == 2) {
+    if (oldVersion < 1 || oldVersion >= newVersion || newVersion != 3) {
+      throw new IllegalStateException("Unsupported database upgrade");
+    }
+    if (oldVersion < 2) {
       db.execSQL("ALTER TABLE measurement ADD COLUMN mean REAL");
       db.execSQL("UPDATE measurement SET mean=(a+b+c)/3.0");
-    } else throw new IllegalStateException("Unsupported database upgrade");
+    }
+    if (oldVersion < 3) db.execSQL("ALTER TABLE practice ADD COLUMN note TEXT NOT NULL DEFAULT ''");
   }
 
   static String today() {
@@ -57,6 +61,14 @@ final class PostureStore extends SQLiteOpenHelper {
   int weeks() { return prefs.getInt("weeks", 4); }
   int minutes() { return prefs.getInt("minutes", 3); }
   int day() { return Math.max(1, elapsedDays(start(), today()) + 1); }
+  String habitCue() { return prefs.getString("habit_cue", ""); }
+
+  void setHabitCue(String cue) {
+    if (cue == null || cue.trim().length() > 60) throw new IllegalArgumentException("Invalid habit cue");
+    if (!prefs.edit().putString("habit_cue", cue.trim()).commit()) {
+      throw new IllegalStateException("Could not save habit cue");
+    }
+  }
 
   void createPlan(int weeks, int minutes) {
     if ((weeks != 2 && weeks != 4) || (minutes != 3 && minutes != 5)) {
@@ -76,13 +88,43 @@ final class PostureStore extends SQLiteOpenHelper {
   }
 
   void finishPractice(int seconds) {
+    finishPractice(seconds, "");
+  }
+
+  void finishPractice(int seconds, String note) {
     if (!hasPlan() || seconds < 1) throw new IllegalArgumentException("Invalid practice");
     ContentValues values = new ContentValues();
     values.put("plan", plan());
     values.put("day", today());
     values.put("seconds", seconds);
-    getWritableDatabase().insertWithOnConflict("practice", null, values,
+    values.put("note", checkedNote(note));
+    long row = getWritableDatabase().insertWithOnConflict("practice", null, values,
         SQLiteDatabase.CONFLICT_IGNORE);
+    if (row == -1 && !practicedToday()) throw new IllegalStateException("Practice not saved");
+  }
+
+  List<Practice> practices(boolean allPlans) {
+    List<Practice> result = new ArrayList<>();
+    try (Cursor cursor = getReadableDatabase().rawQuery(
+        "SELECT plan,day,seconds,note FROM practice" + (allPlans ? "" : " WHERE plan=?")
+            + " ORDER BY day DESC, rowid DESC", allPlans ? null : new String[]{plan()})) {
+      while (cursor.moveToNext()) result.add(new Practice(cursor));
+    }
+    return result;
+  }
+
+  void updatePracticeNote(Practice practice, String note) {
+    ContentValues values = new ContentValues();
+    values.put("note", checkedNote(note));
+    if (getWritableDatabase().update("practice", values, "plan=? AND day=?",
+        new String[]{practice.plan, practice.day}) != 1) {
+      throw new IllegalStateException("Practice not found");
+    }
+  }
+
+  private static String checkedNote(String note) {
+    if (note == null || note.length() > 280) throw new IllegalArgumentException("Invalid note");
+    return note.trim();
   }
 
   List<String> practiceDays() {
@@ -152,6 +194,15 @@ final class PostureStore extends SQLiteOpenHelper {
       id = row.getLong(0); created = row.getLong(1); protocol = row.getString(2);
       samples = new double[]{row.getDouble(3), row.getDouble(4), row.getDouble(5)};
       mean = row.getDouble(6);
+    }
+  }
+
+  static final class Practice {
+    final String plan, day, note;
+    final int seconds;
+    Practice(Cursor row) {
+      plan = row.getString(0); day = row.getString(1);
+      seconds = row.getInt(2); note = row.getString(3);
     }
   }
 }

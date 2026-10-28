@@ -1,6 +1,11 @@
 *.DS_Store
 *.idea
 *.iml
+**/build/
+*.jks
+*.keystore
+signing.properties
+release-private/
 .gradle
 local.properties
 

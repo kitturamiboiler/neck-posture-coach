@@ -1,0 +1,12 @@
+<resources>
+    <string name="posture_app_name">목log</string>
+    <color name="brand_icon_background">#084F3D</color>
+    <style name="PostureTheme" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="colorAccent">#176D54</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">#F8FAF9</item>
+        <item name="android:navigationBarColor">#F8FAF9</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>
