@@ -44,6 +44,15 @@ final class CoachUi {
     LinearLayout root = new LinearLayout(activity);
     root.setOrientation(LinearLayout.VERTICAL);
     root.setBackgroundColor(BACKGROUND);
+    androidx.core.view.WindowCompat.setDecorFitsSystemWindows(activity.getWindow(), false);
+    androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root, (view, insets) -> {
+      androidx.core.graphics.Insets bars = insets.getInsets(
+          androidx.core.view.WindowInsetsCompat.Type.systemBars()
+              | androidx.core.view.WindowInsetsCompat.Type.displayCutout()
+              | androidx.core.view.WindowInsetsCompat.Type.ime());
+      view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+      return androidx.core.view.WindowInsetsCompat.CONSUMED;
+    });
     ScrollView scroll = new ScrollView(activity);
     scroll.setFillViewport(true);
     FrameLayout container = new FrameLayout(activity);
@@ -61,6 +70,7 @@ final class CoachUi {
     root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
     body.setTag(root);
     activity.setContentView(root);
+    androidx.core.view.ViewCompat.requestApplyInsets(root);
     LinearLayout header = new LinearLayout(activity);
     header.setGravity(Gravity.CENTER_VERTICAL);
     body.addView(header, new LinearLayout.LayoutParams(-1, -2));
@@ -135,6 +145,7 @@ final class CoachUi {
     return button;
   }
 
+  @android.annotation.SuppressLint("RestrictedApi")
   static void styleButton(Button button, boolean primary) {
     int[][] states = {new int[]{-android.R.attr.state_enabled}, new int[]{}};
     ColorStateList text = new ColorStateList(states, new int[]{Color.rgb(116,129,123), primary ? Color.WHITE : GREEN});
@@ -144,6 +155,11 @@ final class CoachUi {
     background.addState(states[1], shape(button.getContext(), primary ? GREEN : Color.WHITE, primary ? GREEN : BORDER, 12));
     button.setBackgroundTintList(null);
     button.setBackground(new RippleDrawable(ColorStateList.valueOf(0x22176D54), background, null));
+    // AppCompat 1.7.1 can reapply its separate theme tint after framework tint is cleared.
+    if (button instanceof AppCompatButton) ((AppCompatButton) button).setSupportBackgroundTintList(null);
+    button.getBackground().setState(button.getDrawableState());
+    // Restyling an already enabled view must initialize the new state-list content too.
+    background.setState(button.getDrawableState());
     for (android.graphics.drawable.Drawable drawable : button.getCompoundDrawablesRelative()) {
       if (drawable != null) drawable.setTintList(text);
     }
@@ -270,6 +286,53 @@ final class CoachUi {
 
   static int selected(RadioGroup group) {
     return group.indexOfChild(group.findViewById(group.getCheckedRadioButtonId()));
+  }
+
+  static android.widget.EditText input(LinearLayout parent, String value, String hint, int limit) {
+    android.widget.EditText input = new android.widget.EditText(parent.getContext());
+    input.setText(value); input.setHint(hint); input.setTextSize(16);
+    input.setTextColor(INK); input.setHintTextColor(MUTED);
+    input.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+    input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(limit)});
+    input.setMinHeight(dp(parent.getContext(), 64)); input.setMaxLines(4);
+    input.setGravity(Gravity.TOP | Gravity.START);
+    input.setPadding(dp(parent.getContext(), 12), dp(parent.getContext(), 12),
+        dp(parent.getContext(), 12), dp(parent.getContext(), 12));
+    input.setBackground(shape(parent.getContext(), Color.WHITE, BORDER, 12));
+    parent.addView(input, new LinearLayout.LayoutParams(-1, -2));
+    return input;
+  }
+
+  static void week(LinearLayout parent, java.util.Collection<String> completed, String today) {
+    java.util.List<String> week = HabitProgress.week(today);
+    String[] weekdays = {"월", "화", "수", "목", "금", "토", "일"};
+    int columns = parent.getResources().getConfiguration().fontScale > 1.3f ? 4 : 7;
+    LinearLayout row = null;
+    for (int i = 0; i < 7; i++) {
+      if (i % columns == 0) {
+        row = new LinearLayout(parent.getContext());
+        parent.addView(row, new LinearLayout.LayoutParams(-1, -2));
+      }
+      String date = week.get(i);
+      boolean done = date.compareTo(today) <= 0 && completed.contains(date);
+      boolean current = date.equals(today);
+      TextView cell = new TextView(parent.getContext());
+      cell.setText(weekdays[i] + "\n" + Integer.parseInt(date.substring(8))
+          + "\n" + (done ? "✓" : current ? "오늘" : "·"));
+      cell.setContentDescription(date + " " + weekdays[i] + "요일, "
+          + (done ? "실천 완료" : date.compareTo(today) > 0 ? "아직 오지 않은 날" : "기록 없음")
+          + (current ? ", 오늘" : ""));
+      cell.setTextSize(14); cell.setGravity(Gravity.CENTER);
+      cell.setTextColor(done ? Color.WHITE : current ? GREEN : MUTED);
+      cell.setPadding(0, dp(parent.getContext(), 8), 0, dp(parent.getContext(), 8));
+      cell.setLineSpacing(dp(parent.getContext(), 3), 1);
+      if (done || current) cell.setBackground(shape(parent.getContext(),
+          done ? GREEN : SOFT, GREEN, 12));
+      LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, -2, 1);
+      params.setMargins(dp(parent.getContext(), 2), dp(parent.getContext(), 4),
+          dp(parent.getContext(), 2), dp(parent.getContext(), 4));
+      row.addView(cell, params);
+    }
   }
 
   static void rule(LinearLayout parent) {

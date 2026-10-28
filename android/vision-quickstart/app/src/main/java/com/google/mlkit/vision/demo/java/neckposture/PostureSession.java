@@ -21,6 +21,9 @@ public final class PostureSession extends ViewModel {
   long savedId = -1;
   int routineRemaining;
   boolean routineRunning;
+  String practiceNote = "";
+  int historyTab;
+  int practiceLimit = 30;
   boolean autoCapture = true;
   boolean captureFeedback = true;
 

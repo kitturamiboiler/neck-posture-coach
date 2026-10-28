@@ -68,4 +68,29 @@ public class CoachUiTest {
       view.layout(0, 0, width, view.getMeasuredHeight());
     }
   }
+
+  @Test public void weekWrapsAtLargeFontAndDescribesRealCompletion() {
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+      Context base = InstrumentationRegistry.getInstrumentation().getTargetContext();
+      Configuration config = new Configuration(base.getResources().getConfiguration());
+      config.fontScale = 2;
+      Context context = base.createConfigurationContext(config);
+      LinearLayout parent = new LinearLayout(context);
+      parent.setOrientation(LinearLayout.VERTICAL);
+      CoachUi.week(parent, java.util.Collections.singletonList("2026-10-27"), "2026-10-28");
+      layout(parent, CoachUi.dp(context, 288));
+      assertEquals(2, parent.getChildCount());
+      LinearLayout firstRow = (LinearLayout) parent.getChildAt(0);
+      assertTrue(firstRow.getChildAt(1).getContentDescription().toString().contains("실천 완료"));
+      assertTrue(firstRow.getChildAt(2).getContentDescription().toString().contains("오늘"));
+      for (int r = 0; r < parent.getChildCount(); r++) {
+        LinearLayout row = (LinearLayout) parent.getChildAt(r);
+        for (int c = 0; c < row.getChildCount(); c++) {
+          android.widget.TextView cell = (android.widget.TextView) row.getChildAt(c);
+          assertTrue(cell.getHeight() >= cell.getLayout().getHeight()
+              + cell.getPaddingTop() + cell.getPaddingBottom());
+        }
+      }
+    });
+  }
 }

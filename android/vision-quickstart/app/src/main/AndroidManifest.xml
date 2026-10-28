@@ -53,6 +53,8 @@
             android:name=".java.neckposture.PostureCaptureActivity"
             android:exported="false"
             android:theme="@style/PostureTheme" />
+        <activity android:name=".java.neckposture.PrivacyActivity"
+            android:exported="false" android:theme="@style/PostureTheme"/>
 
         <activity android:name=".EntryChoiceActivity"
             android:exported="false" android:theme="@style/AppTheme" />

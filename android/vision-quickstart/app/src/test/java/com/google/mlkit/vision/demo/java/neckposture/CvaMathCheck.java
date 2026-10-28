@@ -31,6 +31,13 @@ public final class CvaMathCheck {
       check(rejected, "invalid mean rejected");
     }
     System.out.println("CVA checks passed (26 checks)");
+    check(AngleInterpretation.describe(new double[]{48,49,49}).contains("미만"), "below reference");
+    check(AngleInterpretation.describe(new double[]{50,50,50}).contains("이상"), "reference equality");
+    check(AngleInterpretation.describe(new double[]{49,50,51}).contains("양쪽"), "straddling reference");
+    check(AngleInterpretation.describe(new double[]{40,50,60}).contains("보류"), "quality blocks interpretation");
+    check(ExerciseLibrary.stage(180,180) == 0 && ExerciseLibrary.stage(90,180) == 1
+        && ExerciseLibrary.stage(0,180) == 1, "routine phases");
+    System.out.println("Interpretation and exercise checks passed (5 checks)");
   }
 
   private static void check(boolean result, String description) {

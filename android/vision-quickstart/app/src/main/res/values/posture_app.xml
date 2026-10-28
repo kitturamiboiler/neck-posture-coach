@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="posture_app_name">목 자세 코치</string>
+    <string name="posture_app_name">목log</string>
     <style name="PostureTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="colorAccent">#176D54</item>
         <item name="android:fontFamily">sans</item>

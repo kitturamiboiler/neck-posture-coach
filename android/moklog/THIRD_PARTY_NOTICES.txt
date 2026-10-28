@@ -1,0 +1,50 @@
+목log · Third-party notices
+
+Google ML Kit vision-quickstart sample (modified): Copyright 2020 Google LLC.
+https://github.com/googlesamples/mlkit
+Apache License 2.0; full text follows below.
+
+AndroidX / CameraX: Copyright The Android Open Source Project.
+https://android.googlesource.com/platform/frameworks/support/
+Guava / failureaccess / J2ObjC / Error Prone / AutoValue / JSR-305:
+https://github.com/google/guava
+https://github.com/google/j2objc
+https://github.com/google/error-prone
+https://github.com/google/auto
+Apache License 2.0; full text follows below.
+
+Kotlin standard library / kotlinx.coroutines / JetBrains annotations:
+Copyright JetBrains s.r.o. and Kotlin Programming Language contributors.
+https://github.com/JetBrains/kotlin
+https://github.com/Kotlin/kotlinx.coroutines
+Apache License 2.0; full text follows below.
+
+Checker Framework annotations (checker-compat-qual): MIT License.
+The Checker Framework developers.
+https://github.com/typetools/checker-framework/blob/checker-framework-2.5.2/LICENSE.txt
+Only annotations are used, not the GPL checker implementation.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+Google ML Kit / Google Play services are supplied under their SDK terms,
+not relicensed as Apache by this application:
+https://developers.google.com/ml-kit/terms
+https://developers.google.com/terms
+Google DataTransport / Firebase component and encoder libraries use Apache 2.0.
+https://github.com/firebase/firebase-android-sdk
+No Firebase account, analytics dashboard or app backend is configured by 목log.
+SDK operational metrics may still be processed as explained in the privacy notice.

@@ -1,0 +1,113 @@
+plugins { id 'com.android.application' version '8.13.0' }
+
+android {
+    namespace 'com.google.mlkit.vision.demo'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'com.moklog.app'
+        minSdk 23
+        targetSdk 36
+        versionCode 1
+        versionName '1.0.0'
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+        resValue 'string', 'moklog_operator', providers.gradleProperty('moklogOperator').getOrElse('')
+        resValue 'string', 'moklog_email', providers.gradleProperty('moklogEmail').getOrElse('')
+        resValue 'string', 'moklog_privacy_url', providers.gradleProperty('moklogPrivacyUrl').getOrElse('')
+    }
+    def signingFile = providers.environmentVariable('MOKLOG_KEYSTORE').orNull
+    if (signingFile) {
+        signingConfigs {
+            upload {
+                storeFile file(signingFile)
+                storePassword System.getenv('MOKLOG_STORE_PASSWORD')
+                keyAlias System.getenv('MOKLOG_KEY_ALIAS')
+                keyPassword System.getenv('MOKLOG_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (signingFile) signingConfig signingConfigs.upload
+        }
+    }
+    sourceSets {
+        main {
+            java.srcDirs = [layout.buildDirectory.dir('generated/coach/main')]
+            assets.srcDir layout.buildDirectory.dir('generated/notices')
+        }
+        androidTest {
+            java.srcDirs = ['src/androidTest/java', layout.buildDirectory.dir('generated/coach/androidTest')]
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    buildFeatures { buildConfig true }
+    packaging { resources.excludes += ['META-INF/DEPENDENCIES'] }
+}
+
+tasks.register('syncCoachSources', Sync) {
+    from('../vision-quickstart/app/src/main/java') {
+        include 'com/google/mlkit/vision/demo/java/neckposture/**'
+        exclude '**/NeckPostureProcessor.java', '**/NeckPostureGraphic.java'
+    }
+    into(layout.buildDirectory.dir('generated/coach/main'))
+}
+tasks.register('syncCoachTests', Sync) {
+    from('../vision-quickstart/app/src/androidTest/java') {
+        include 'com/google/mlkit/vision/demo/java/neckposture/**'
+        exclude '**/EarReplayTest.java', '**/NeckPostureAngleTest.java'
+    }
+    into(layout.buildDirectory.dir('generated/coach/androidTest'))
+}
+tasks.register('generateNotices') {
+    inputs.files('THIRD_PARTY_NOTICES.txt', '../vision-quickstart/LICENSE')
+    def output = layout.buildDirectory.file('generated/notices/licenses.txt')
+    outputs.file(output)
+    doLast {
+        def target = output.get().asFile
+        target.parentFile.mkdirs()
+        target.setText(file('THIRD_PARTY_NOTICES.txt').getText('UTF-8') + '\n\n'
+                + file('../vision-quickstart/LICENSE').getText('UTF-8'), 'UTF-8')
+    }
+}
+tasks.named('preBuild').configure { dependsOn 'syncCoachSources', 'syncCoachTests', 'generateNotices' }
+tasks.register('verifySubmissionOwner') {
+    doLast {
+        def email = providers.gradleProperty('moklogEmail').getOrElse('')
+        def policy = providers.gradleProperty('moklogPrivacyUrl').getOrElse('')
+        if (!providers.gradleProperty('moklogOperator').getOrElse('').trim()
+                || !(email ==~ /[^@\s]+@[^@\s]+\.[^@\s]+/)
+                || !policy.startsWith('https://')) {
+            throw new GradleException('Operator, public support email and HTTPS privacy URL are required. See docs/release.')
+        }
+        if (!['MOKLOG_KEYSTORE', 'MOKLOG_STORE_PASSWORD', 'MOKLOG_KEY_ALIAS', 'MOKLOG_KEY_PASSWORD']
+                .every { System.getenv(it) }) {
+            throw new GradleException('Owner-controlled upload signing environment is required; never use the debug key.')
+        }
+        if (!file(System.getenv('MOKLOG_KEYSTORE')).isFile()) {
+            throw new GradleException('Upload keystore file not found.')
+        }
+    }
+}
+tasks.matching { it.name == 'bundleRelease' }.configureEach { mustRunAfter 'verifySubmissionOwner' }
+tasks.register('submissionBundle') { dependsOn 'verifySubmissionOwner', 'bundleRelease', 'lintRelease' }
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.1'
+    implementation 'androidx.activity:activity:1.10.1'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel:2.3.1'
+    implementation 'com.google.guava:guava:27.1-android'
+    implementation 'com.google.mlkit:face-detection:16.1.7'
+    implementation 'androidx.camera:camera-camera2:1.4.2'
+    implementation 'androidx.camera:camera-lifecycle:1.4.2'
+    implementation 'androidx.camera:camera-view:1.4.2'
+    androidTestImplementation 'androidx.test:core:1.4.0'
+    androidTestImplementation 'androidx.test:runner:1.4.0'
+    androidTestImplementation 'androidx.test:rules:1.4.0'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.3'
+}
